@@ -52,6 +52,13 @@ const searchSortOrderSchema = z.enum(['asc', 'desc']);
 type SearchSortBy = z.infer<typeof searchSortBySchema>;
 type SearchSortOrder = z.infer<typeof searchSortOrderSchema>;
 
+class MaintenanceError extends Error {
+  constructor(message = 'c411.org appears to be in maintenance mode. Please try again later.') {
+    super(message);
+    this.name = 'MaintenanceError';
+  }
+}
+
 class C411Client {
   private client: any;
   private session: C411Session | null = null;
@@ -60,6 +67,7 @@ class C411Client {
   private readonly requestTimeoutMs = 10_000;
   private readonly authRetryLimit = 2;
   private readonly authRetryDelayMs = 500;
+  private lastAuthError: string | null = null;
 
   constructor(private username?: string, private password?: string) {
     const wrappedAxios = (wrapper as any)(axios as any);
@@ -79,6 +87,18 @@ class C411Client {
 
   private async delay(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private setAuthError(message: string): void {
+    this.lastAuthError = message;
+  }
+
+  private clearAuthError(): void {
+    this.lastAuthError = null;
+  }
+
+  private getAuthErrorMessage(fallback: string): string {
+    return this.lastAuthError || fallback;
   }
 
   private getSafeErrorMessage(error: unknown): string {
@@ -157,6 +177,28 @@ class C411Client {
     return null;
   }
 
+  private isMaintenanceMessage(message: string | null): boolean {
+    if (!message) {
+      return false;
+    }
+
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes('maintenance') ||
+      normalized.includes('temporarily unavailable') ||
+      normalized.includes('down for maintenance') ||
+      normalized.includes('service unavailable')
+    );
+  }
+
+  private isMaintenanceResponse(status: number, data: unknown, contentType?: string): boolean {
+    if (status === 503) {
+      return true;
+    }
+
+    return this.isMaintenanceMessage(this.getErrorMessageFromResponse(data, contentType));
+  }
+
   private async fetchLoginCsrfToken(): Promise<string> {
     const response = await this.client.get('/login', {
       headers: {
@@ -165,6 +207,14 @@ class C411Client {
       },
       responseType: 'text',
     });
+
+    const contentType = typeof response.headers['content-type'] === 'string'
+      ? response.headers['content-type']
+      : undefined;
+
+    if (this.isMaintenanceResponse(response.status, response.data, contentType)) {
+      throw new MaintenanceError();
+    }
 
     if (response.status !== 200 || typeof response.data !== 'string') {
       throw new Error(`Unable to load login page (HTTP ${response.status})`);
@@ -177,6 +227,10 @@ class C411Client {
       '';
 
     if (!csrfToken) {
+      if (this.isMaintenanceMessage(this.getErrorMessageFromResponse(response.data, contentType))) {
+        throw new MaintenanceError();
+      }
+
       throw new Error('Unable to find the CSRF token on the login page');
     }
 
@@ -190,6 +244,14 @@ class C411Client {
         'Referer': `${this.baseUrl}/torrents`,
       },
     });
+
+    const contentType = typeof response.headers['content-type'] === 'string'
+      ? response.headers['content-type']
+      : undefined;
+
+    if (this.isMaintenanceResponse(response.status, response.data, contentType)) {
+      throw new MaintenanceError();
+    }
 
     const data = response.data as AuthStateResponse | undefined;
     return response.status === 200 && Boolean(data?.authenticated);
@@ -397,7 +459,8 @@ class C411Client {
 
   async login(): Promise<boolean> {
     if (!this.username || !this.password) {
-      console.error('No credentials provided. Set C411_USERNAME and C411_PASSWORD environment variables.');
+      this.setAuthError('Authentication required. Set C411_USERNAME and C411_PASSWORD environment variables.');
+      console.error(this.lastAuthError);
       return false;
     }
 
@@ -417,21 +480,33 @@ class C411Client {
         },
       });
 
+      const contentType = typeof loginResponse.headers['content-type'] === 'string'
+        ? loginResponse.headers['content-type']
+        : undefined;
+
+      if (this.isMaintenanceResponse(loginResponse.status, loginResponse.data, contentType)) {
+        this.setAuthError('c411.org appears to be in maintenance mode, so authentication is temporarily unavailable.');
+        console.error(this.lastAuthError);
+        return false;
+      }
+
       if (loginResponse.status === 401) {
-        console.error('Login failed - invalid C411 username or password');
+        this.setAuthError('Login failed: invalid C411 username or password.');
+        console.error(this.lastAuthError);
         return false;
       }
 
       if (loginResponse.status >= 400) {
-        const loginData = loginResponse.data as LoginResponse | undefined;
-        const message = this.getString(loginData?.message) || `HTTP ${loginResponse.status}`;
-        console.error(`Login failed - ${message}`);
+        const message = this.getErrorMessageFromResponse(loginResponse.data, contentType) || `HTTP ${loginResponse.status}`;
+        this.setAuthError(`Login failed: ${message}`);
+        console.error(this.lastAuthError);
         return false;
       }
 
       const authenticated = await this.isAuthenticated();
 
       if (authenticated) {
+        this.clearAuthError();
         this.session = {
           csrfToken,
           authenticated: true,
@@ -439,10 +514,18 @@ class C411Client {
         return true;
       }
 
-      console.error('Login failed - authentication was not established after the login request');
+      this.setAuthError('Login failed: authentication was not established after the login request.');
+      console.error(this.lastAuthError);
       return false;
     } catch (error) {
-      console.error(`Login error: ${this.getSafeErrorMessage(error)}`);
+      if (error instanceof MaintenanceError) {
+        this.setAuthError(error.message);
+        console.error(this.lastAuthError);
+        return false;
+      }
+
+      this.setAuthError(`Login error: ${this.getSafeErrorMessage(error)}`);
+      console.error(this.lastAuthError);
       return false;
     }
   }
@@ -457,7 +540,7 @@ class C411Client {
     if (!this.session || !this.session.authenticated) {
       const loggedIn = await this.login();
       if (!loggedIn) {
-        return ['Error: Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.'];
+        return [`Error: ${this.getAuthErrorMessage('Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.')}`];
       }
     }
 
@@ -487,7 +570,7 @@ class C411Client {
 
           const loggedIn = await this.login();
           if (!loggedIn) {
-            return ['Error: Authentication expired and re-login failed.'];
+            return [`Error: ${this.getAuthErrorMessage('Authentication expired and re-login failed.')}`];
           }
 
           continue;
@@ -522,7 +605,7 @@ class C411Client {
     if (!this.session || !this.session.authenticated) {
       const loggedIn = await this.login();
       if (!loggedIn) {
-        return { success: false, error: 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.' };
+        return { success: false, error: this.getAuthErrorMessage('Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.') };
       }
     }
 
@@ -550,7 +633,7 @@ class C411Client {
 
           const loggedIn = await this.login();
           if (!loggedIn) {
-            return { success: false, error: 'Authentication expired and re-login failed.' };
+            return { success: false, error: this.getAuthErrorMessage('Authentication expired and re-login failed.') };
           }
 
           continue;
