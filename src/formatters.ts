@@ -1,4 +1,4 @@
-import { getNestedNumber, getNestedString } from './response-utils.js';
+import { getNestedNumber, getNestedString } from './data-utils.js';
 import type { JsonRecord } from './types.js';
 
 function formatBytes(size: unknown): string | null {

@@ -26,3 +26,11 @@ export interface DownloadResult {
   savedPath?: string;
   error?: string;
 }
+
+export type AuthResult =
+  | { success: true }
+  | { success: false; message: string };
+
+export type AuthenticatedOperationResult<T> =
+  | { type: 'success'; value: T }
+  | { type: 'reauth' };

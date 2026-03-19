@@ -12,8 +12,15 @@ import {
   getSafeErrorMessage,
   isMaintenanceMessage,
   isMaintenanceResponse,
-} from './response-utils.js';
-import type { AuthStateResponse, C411ApiListResponse, C411Session, DownloadResult } from './types.js';
+} from './http-response-utils.js';
+import type {
+  AuthResult,
+  AuthStateResponse,
+  AuthenticatedOperationResult,
+  C411ApiListResponse,
+  C411Session,
+  DownloadResult,
+} from './types.js';
 import type { SearchSortBy, SearchSortOrder } from './schemas.js';
 
 export class C411Client {
@@ -24,7 +31,6 @@ export class C411Client {
   private readonly requestTimeoutMs = 10_000;
   private readonly authRetryLimit = 2;
   private readonly authRetryDelayMs = 500;
-  private lastAuthError: string | null = null;
 
   constructor(private username?: string, private password?: string) {
     this.client = createHttpClient({
@@ -42,18 +48,6 @@ export class C411Client {
 
   private async delay(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  private setAuthError(message: string): void {
-    this.lastAuthError = message;
-  }
-
-  private clearAuthError(): void {
-    this.lastAuthError = null;
-  }
-
-  private getAuthErrorMessage(fallback: string): string {
-    return this.lastAuthError || fallback;
   }
 
   private async fetchLoginCsrfToken(): Promise<string> {
@@ -107,44 +101,47 @@ export class C411Client {
     return response.status === 200 && Boolean(response.data?.authenticated);
   }
 
-  private async reauthenticate(): Promise<boolean> {
+  private async reauthenticate(): Promise<AuthResult> {
     this.session = null;
     await this.delay(this.authRetryDelayMs);
     return this.login();
   }
 
-  private async withAuthentication<T>(operation: () => Promise<T | 'reauth'>, authFailureMessage: string): Promise<T> {
+  private async withAuthentication<T>(
+    operation: () => Promise<AuthenticatedOperationResult<T>>,
+    authFailureMessage: string
+  ): Promise<T> {
     if (!this.session?.authenticated) {
-      const loggedIn = await this.login();
-      if (!loggedIn) {
-        throw new Error(this.getAuthErrorMessage(authFailureMessage));
+      const loginResult = await this.login();
+      if (!loginResult.success) {
+        throw new Error(loginResult.message || authFailureMessage);
       }
     }
 
     for (let attempt = 0; attempt <= this.authRetryLimit; attempt += 1) {
       const result = await operation();
-      if (result !== 'reauth') {
-        return result;
+      if (result.type === 'success') {
+        return result.value;
       }
 
       if (attempt >= this.authRetryLimit) {
         throw new Error('Authentication expired and re-login failed after retries.');
       }
 
-      const loggedIn = await this.reauthenticate();
-      if (!loggedIn) {
-        throw new Error(this.getAuthErrorMessage('Authentication expired and re-login failed.'));
+      const loginResult = await this.reauthenticate();
+      if (!loginResult.success) {
+        throw new Error(loginResult.message || 'Authentication expired and re-login failed.');
       }
     }
 
     throw new Error('Authentication expired and re-login failed after retries.');
   }
 
-  async login(): Promise<boolean> {
+  async login(): Promise<AuthResult> {
     if (!this.username || !this.password) {
-      this.setAuthError('Authentication required. Set C411_USERNAME and C411_PASSWORD environment variables.');
-      console.error(this.lastAuthError);
-      return false;
+      const message = 'Authentication required. Set C411_USERNAME and C411_PASSWORD environment variables.';
+      console.error(message);
+      return { success: false, message };
     }
 
     try {
@@ -165,47 +162,44 @@ export class C411Client {
 
       const contentType = getContentType(loginResponse.headers as Record<string, unknown>);
       if (isMaintenanceResponse(loginResponse.status, loginResponse.data, contentType)) {
-        this.setAuthError('c411.org appears to be in maintenance mode, so authentication is temporarily unavailable.');
-        console.error(this.lastAuthError);
-        return false;
+        const message = 'c411.org appears to be in maintenance mode, so authentication is temporarily unavailable.';
+        console.error(message);
+        return { success: false, message };
       }
 
       if (loginResponse.status === 401) {
-        this.setAuthError('Login failed: invalid C411 username or password.');
-        console.error(this.lastAuthError);
-        return false;
+        const message = 'Login failed: invalid C411 username or password.';
+        console.error(message);
+        return { success: false, message };
       }
 
       if (loginResponse.status >= 400) {
-        const message = getErrorMessageFromResponse(loginResponse.data, contentType) || `HTTP ${loginResponse.status}`;
-        this.setAuthError(`Login failed: ${message}`);
-        console.error(this.lastAuthError);
-        return false;
+        const message = `Login failed: ${getErrorMessageFromResponse(loginResponse.data, contentType) || `HTTP ${loginResponse.status}`}`;
+        console.error(message);
+        return { success: false, message };
       }
 
       const authenticated = await this.isAuthenticated();
       if (authenticated) {
-        this.clearAuthError();
         this.session = {
           csrfToken,
           authenticated: true,
         };
-        return true;
+        return { success: true };
       }
 
-      this.setAuthError('Login failed: authentication was not established after the login request.');
-      console.error(this.lastAuthError);
-      return false;
+      const message = 'Login failed: authentication was not established after the login request.';
+      console.error(message);
+      return { success: false, message };
     } catch (error) {
       if (error instanceof MaintenanceError) {
-        this.setAuthError(error.message);
-        console.error(this.lastAuthError);
-        return false;
+        console.error(error.message);
+        return { success: false, message: error.message };
       }
 
-      this.setAuthError(`Login error: ${getSafeErrorMessage(error, this.requestTimeoutMs)}`);
-      console.error(this.lastAuthError);
-      return false;
+      const message = `Login error: ${getSafeErrorMessage(error, this.requestTimeoutMs)}`;
+      console.error(message);
+      return { success: false, message };
     }
   }
 
@@ -217,7 +211,7 @@ export class C411Client {
     perPage = 25
   ): Promise<string[]> {
     try {
-      return await this.withAuthentication(async () => {
+      return await this.withAuthentication<string[]>(async () => {
         const response = await this.client.get<C411ApiListResponse<unknown>>('/api/torrents', {
           params: {
             name: query,
@@ -233,7 +227,7 @@ export class C411Client {
         });
 
         if (response.status === 401) {
-          return 'reauth';
+          return { type: 'reauth' };
         }
 
         if (response.status >= 400) {
@@ -241,7 +235,7 @@ export class C411Client {
             response.data,
             getContentType(response.headers as Record<string, unknown>)
           ) || `HTTP ${response.status}`;
-          return [`Error: Search failed - ${errorMessage}`];
+          return { type: 'success', value: [`Error: Search failed - ${errorMessage}`] };
         }
 
         const rawResults = Array.isArray(response.data?.data) ? response.data.data : [];
@@ -249,7 +243,7 @@ export class C411Client {
           .map((item) => formatSearchResult(item))
           .filter((item): item is string => Boolean(item));
 
-        return results.length > 0 ? results : ['No results found'];
+        return { type: 'success', value: results.length > 0 ? results : ['No results found'] };
       }, 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.');
     } catch (error) {
       const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
@@ -264,7 +258,7 @@ export class C411Client {
     }
 
     try {
-      return await this.withAuthentication(async () => {
+      return await this.withAuthentication<DownloadResult>(async () => {
         const response = await this.client.get<ArrayBuffer>(`/api/torrents/${infoHash}/download`, {
           responseType: 'arraybuffer',
           headers: {
@@ -274,11 +268,11 @@ export class C411Client {
         });
 
         if (response.status === 401) {
-          return 'reauth';
+          return { type: 'reauth' };
         }
 
         if (response.status === 404) {
-          return { success: false, error: 'Torrent not found.' };
+          return { type: 'success', value: { success: false, error: 'Torrent not found.' } };
         }
 
         if (response.status >= 400) {
@@ -286,7 +280,7 @@ export class C411Client {
             response.data,
             getContentType(response.headers as Record<string, unknown>)
           ) || `HTTP ${response.status}`;
-          return { success: false, error: `Download failed - ${errorMessage}` };
+          return { type: 'success', value: { success: false, error: `Download failed - ${errorMessage}` } };
         }
 
         const buffer = Buffer.isBuffer(response.data)
@@ -312,9 +306,12 @@ export class C411Client {
         await writeFile(savedPath, buffer);
 
         return {
-          success: true,
-          filename: safeFilename,
-          savedPath,
+          type: 'success',
+          value: {
+            success: true,
+            filename: safeFilename,
+            savedPath,
+          },
         };
       }, 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.');
     } catch (error) {
