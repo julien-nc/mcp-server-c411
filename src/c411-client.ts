@@ -1,10 +1,10 @@
-import axios, { type AxiosInstance } from 'axios';
-import { wrapper } from 'axios-cookiejar-support';
+import { type AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { CookieJar } from 'tough-cookie';
 import { formatSearchResult } from './formatters.js';
+import { createHttpClient } from './http-client.js';
 import {
   MaintenanceError,
   getContentType,
@@ -27,8 +27,7 @@ export class C411Client {
   private lastAuthError: string | null = null;
 
   constructor(private username?: string, private password?: string) {
-    const wrappedAxios = wrapper(axios as never) as typeof axios;
-    this.client = wrappedAxios.create({
+    this.client = createHttpClient({
       baseURL: this.baseUrl,
       timeout: this.requestTimeoutMs,
       headers: {
@@ -38,7 +37,7 @@ export class C411Client {
       jar: this.cookieJar,
       withCredentials: true,
       validateStatus: () => true,
-    } as never) as AxiosInstance;
+    });
   }
 
   private async delay(ms: number): Promise<void> {
@@ -212,7 +211,7 @@ export class C411Client {
 
   async search(
     query: string,
-    sortBy: SearchSortBy = 'seeders',
+    sortBy: SearchSortBy = 'relevance',
     sortOrder: SearchSortOrder = 'desc',
     page = 1,
     perPage = 25
