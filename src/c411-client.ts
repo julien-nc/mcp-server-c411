@@ -9,7 +9,9 @@ import {
   MaintenanceError,
   getContentType,
   getErrorMessageFromResponse,
+  getResponseUrl,
   getSafeErrorMessage,
+  isAuthenticationFailureResponse,
   isMaintenanceMessage,
   isMaintenanceResponse,
 } from './http-response-utils.js';
@@ -226,16 +228,23 @@ export class C411Client {
           },
         });
 
-        if (response.status === 401) {
+        const contentType = getContentType(response.headers as Record<string, unknown>);
+        const responseUrl = getResponseUrl(response.request);
+
+        if (isMaintenanceResponse(response.status, response.data, contentType)) {
+          throw new MaintenanceError();
+        }
+
+        if (isAuthenticationFailureResponse(response.status, response.data, contentType, responseUrl)) {
           return { type: 'reauth' };
         }
 
         if (response.status >= 400) {
           const errorMessage = getErrorMessageFromResponse(
             response.data,
-            getContentType(response.headers as Record<string, unknown>)
+            contentType
           ) || `HTTP ${response.status}`;
-          return { type: 'success', value: [`Error: Search failed - ${errorMessage}`] };
+          throw new Error(`Search failed - ${errorMessage}`);
         }
 
         const rawResults = Array.isArray(response.data?.data) ? response.data.data : [];
@@ -248,7 +257,7 @@ export class C411Client {
     } catch (error) {
       const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
       console.error(`Error searching c411.org: ${message}`);
-      return [`Error: ${message}`];
+      throw new Error(message);
     }
   }
 
@@ -267,7 +276,14 @@ export class C411Client {
           },
         });
 
-        if (response.status === 401) {
+        const contentType = getContentType(response.headers as Record<string, unknown>);
+        const responseUrl = getResponseUrl(response.request);
+
+        if (isMaintenanceResponse(response.status, response.data, contentType)) {
+          throw new MaintenanceError();
+        }
+
+        if (isAuthenticationFailureResponse(response.status, response.data, contentType, responseUrl)) {
           return { type: 'reauth' };
         }
 
@@ -278,7 +294,7 @@ export class C411Client {
         if (response.status >= 400) {
           const errorMessage = getErrorMessageFromResponse(
             response.data,
-            getContentType(response.headers as Record<string, unknown>)
+            contentType
           ) || `HTTP ${response.status}`;
           return { type: 'success', value: { success: false, error: `Download failed - ${errorMessage}` } };
         }

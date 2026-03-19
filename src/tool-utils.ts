@@ -8,3 +8,15 @@ export function textContent(text: string) {
     ],
   };
 }
+
+export function errorContent(text: string) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text,
+      },
+    ],
+    isError: true,
+  };
+}

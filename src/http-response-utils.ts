@@ -14,6 +14,15 @@ export function getContentType(headers: Record<string, unknown> | undefined): st
   return typeof headers?.['content-type'] === 'string' ? headers['content-type'] : undefined;
 }
 
+export function getResponseUrl(request: unknown): string | undefined {
+  if (!request || typeof request !== 'object') {
+    return undefined;
+  }
+
+  const responseUrl = (request as { res?: { responseUrl?: unknown } }).res?.responseUrl;
+  return typeof responseUrl === 'string' ? responseUrl : undefined;
+}
+
 export function decodeResponseBody(data: unknown): string | null {
   if (typeof data === 'string') {
     return data;
@@ -91,6 +100,48 @@ export function isMaintenanceResponse(status: number, data: unknown, contentType
   }
 
   return isMaintenanceMessage(getErrorMessageFromResponse(data, contentType));
+}
+
+function isLoginUrl(url: string): boolean {
+  try {
+    return new URL(url).pathname === '/login';
+  } catch {
+    return /\/login(?:[/?#]|$)/.test(url);
+  }
+}
+
+function isLoginPageBody(body: string): boolean {
+  return (
+    /name=["']password["']/.test(body) &&
+    (/api\/auth\/login/.test(body) || /csrf-token|csrf_token/.test(body) || /<form[^>]+login/.test(body))
+  );
+}
+
+export function isAuthenticationFailureResponse(
+  status: number,
+  data: unknown,
+  contentType?: string,
+  responseUrl?: string
+): boolean {
+  if (status === 401) {
+    return true;
+  }
+
+  if (responseUrl && isLoginUrl(responseUrl)) {
+    return true;
+  }
+
+  const decodedBody = decodeResponseBody(data);
+  if (!decodedBody) {
+    return false;
+  }
+
+  const normalizedContentType = contentType?.toLowerCase() ?? '';
+  if (!normalizedContentType.includes('html') && normalizedContentType !== '' && !normalizedContentType.includes('text')) {
+    return false;
+  }
+
+  return isLoginPageBody(decodedBody.toLowerCase());
 }
 
 export function getSafeErrorMessage(error: unknown, requestTimeoutMs: number): string {
