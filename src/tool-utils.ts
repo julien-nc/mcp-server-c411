@@ -21,7 +21,7 @@ export function textWithStructuredContent<T>(text: string, structuredContent: T)
   };
 }
 
-export function errorContent(text: string) {
+export function errorContent<T extends Record<string, unknown>>(text: string, structuredContent?: T) {
   return {
     content: [
       {
@@ -29,6 +29,7 @@ export function errorContent(text: string) {
         text,
       },
     ],
+    ...(structuredContent ? { structuredContent } : {}),
     isError: true,
   };
 }

@@ -45,6 +45,7 @@ export const searchToolOutputSchema = z.object({
   totalPages: z.number().optional(),
   resultCount: z.number().int().nonnegative(),
   results: z.array(searchResultItemSchema),
+  error: z.string().optional(),
 });
 
 export const downloadToolSchema = z.object({
@@ -53,9 +54,10 @@ export const downloadToolSchema = z.object({
 });
 
 export const downloadToolOutputSchema = z.object({
-  success: z.literal(true),
-  filename: z.string(),
-  savedPath: z.string(),
+  success: z.boolean(),
+  filename: z.string().optional(),
+  savedPath: z.string().optional(),
+  error: z.string().optional(),
 });
 
 export const torrentInfoToolSchema = z.object({
@@ -129,7 +131,8 @@ export const torrentCommentSchema = z.object({
 });
 
 export const torrentInfoToolOutputSchema = z.object({
-  title: z.string(),
+  success: z.boolean().optional(),
+  title: z.string().optional(),
   infoHash: z.string(),
   category: z.string().optional(),
   subcategory: z.string().optional(),
@@ -145,10 +148,11 @@ export const torrentInfoToolOutputSchema = z.object({
   isFreeleech: z.boolean().optional(),
   isExclusive: z.boolean().optional(),
   lowBitrateWarning: z.boolean().optional(),
-  fileCount: z.number().int().nonnegative(),
-  files: z.array(torrentFileEntrySchema),
+  fileCount: z.number().int().nonnegative().optional(),
+  files: z.array(torrentFileEntrySchema).optional(),
   tmdb: torrentTmdbSchema.optional(),
   trust: torrentTrustSchema.optional(),
+  error: z.string().optional(),
 });
 
 export const torrentCommentsToolOutputSchema = z.object({
@@ -159,6 +163,7 @@ export const torrentCommentsToolOutputSchema = z.object({
   totalPages: z.number().int().nonnegative().optional(),
   resultCount: z.number().int().nonnegative(),
   comments: z.array(torrentCommentSchema),
+  error: z.string().optional(),
 });
 
 export type SearchSortBy = z.infer<typeof searchSortBySchema>;

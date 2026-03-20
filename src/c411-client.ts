@@ -361,7 +361,7 @@ export class C411Client {
         };
       }, 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
+      const message = getSafeErrorMessage(error, this.requestTimeoutMs);
       console.error(`Error searching c411.org: ${message}`);
       throw new Error(message);
     }
@@ -388,7 +388,7 @@ export class C411Client {
 
       return detail;
     } catch (error) {
-      const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
+      const message = getSafeErrorMessage(error, this.requestTimeoutMs);
       console.error(`Error fetching torrent info: ${message}`);
       throw new Error(message);
     }
@@ -419,7 +419,7 @@ export class C411Client {
         comments,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
+      const message = getSafeErrorMessage(error, this.requestTimeoutMs);
       console.error(`Error fetching torrent comments: ${message}`);
       throw new Error(message);
     }
@@ -510,7 +510,7 @@ export class C411Client {
         };
       }, 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
+      const message = getSafeErrorMessage(error, this.requestTimeoutMs);
       console.error(`Error downloading torrent: ${message}`);
       return { success: false, error: message };
     }

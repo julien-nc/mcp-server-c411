@@ -18,7 +18,15 @@ export function registerTools(server: McpServer, client: C411Client): void {
 
       return textWithStructuredContent(text, results);
     } catch (error) {
-      return errorContent(error instanceof Error ? error.message : 'Search failed');
+      const message = error instanceof Error ? error.message : 'Search failed';
+      return errorContent(message, {
+        query: args.query,
+        page: args.page,
+        perPage: args.perPage,
+        resultCount: 0,
+        results: [],
+        error: message,
+      });
     }
   });
 
@@ -30,11 +38,16 @@ export function registerTools(server: McpServer, client: C411Client): void {
     const result = await client.downloadTorrent(args.infoHash, args.outputDir ?? '/tmp');
     return result.success
       ? textWithStructuredContent(result.savedPath || `Saved ${result.filename}`, {
-        success: true as const,
+        success: true,
         filename: result.filename || `${args.infoHash}.torrent`,
         savedPath: result.savedPath || `Saved ${result.filename}`,
       })
-      : errorContent(result.error || 'Download failed');
+      : errorContent(result.error || 'Download failed', {
+        success: false,
+        ...(result.filename ? { filename: result.filename } : {}),
+        ...(result.savedPath ? { savedPath: result.savedPath } : {}),
+        error: result.error || 'Download failed',
+      });
   });
 
   server.registerTool('get_c411_torrent_info', {
@@ -44,9 +57,17 @@ export function registerTools(server: McpServer, client: C411Client): void {
   }, async (args) => {
     try {
       const detail = await client.getTorrentInfo(args.infoHash);
-      return textWithStructuredContent(formatStructuredTorrentDetail(detail), detail);
+      return textWithStructuredContent(formatStructuredTorrentDetail(detail), {
+        success: true,
+        ...detail,
+      });
     } catch (error) {
-      return errorContent(error instanceof Error ? error.message : 'Torrent lookup failed');
+      const message = error instanceof Error ? error.message : 'Torrent lookup failed';
+      return errorContent(message, {
+        success: false,
+        infoHash: args.infoHash,
+        error: message,
+      });
     }
   });
 
@@ -59,7 +80,15 @@ export function registerTools(server: McpServer, client: C411Client): void {
       const commentsPage = await client.getTorrentComments(args.infoHash, args.page, args.limit);
       return textWithStructuredContent(formatStructuredTorrentCommentsPage(commentsPage), commentsPage);
     } catch (error) {
-      return errorContent(error instanceof Error ? error.message : 'Torrent comments lookup failed');
+      const message = error instanceof Error ? error.message : 'Torrent comments lookup failed';
+      return errorContent(message, {
+        infoHash: args.infoHash,
+        page: args.page,
+        limit: args.limit,
+        resultCount: 0,
+        comments: [],
+        error: message,
+      });
     }
   });
 }
