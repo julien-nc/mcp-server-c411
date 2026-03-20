@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { CookieJar } from 'tough-cookie';
-import { formatSearchResult } from './formatters.js';
+import { formatStructuredSearchResult, toStructuredSearchResult } from './formatters.js';
 import { createHttpClient } from './http-client.js';
 import {
   MaintenanceError,
@@ -22,6 +22,7 @@ import type {
   C411ApiListResponse,
   C411Session,
   DownloadResult,
+  SearchResultPage,
 } from './types.js';
 import type { SearchSortBy, SearchSortOrder } from './schemas.js';
 
@@ -211,9 +212,9 @@ export class C411Client {
     sortOrder: SearchSortOrder = 'desc',
     page = 1,
     perPage = 25
-  ): Promise<string[]> {
+  ): Promise<SearchResultPage> {
     try {
-      return await this.withAuthentication<string[]>(async () => {
+      return await this.withAuthentication<SearchResultPage>(async () => {
         const response = await this.client.get<C411ApiListResponse<unknown>>('/api/torrents', {
           params: {
             name: query,
@@ -249,10 +250,21 @@ export class C411Client {
 
         const rawResults = Array.isArray(response.data?.data) ? response.data.data : [];
         const results = rawResults
-          .map((item) => formatSearchResult(item))
-          .filter((item): item is string => Boolean(item));
+          .map((item) => toStructuredSearchResult(item))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-        return { type: 'success', value: results.length > 0 ? results : ['No results found'] };
+        return {
+          type: 'success',
+          value: {
+            query,
+            page,
+            perPage,
+            total: response.data?.meta?.total,
+            totalPages: response.data?.meta?.totalPages,
+            resultCount: results.length,
+            results,
+          },
+        };
       }, 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.');
     } catch (error) {
       const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);

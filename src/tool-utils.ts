@@ -9,6 +9,18 @@ export function textContent(text: string) {
   };
 }
 
+export function textWithStructuredContent<T>(text: string, structuredContent: T) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text,
+      },
+    ],
+    structuredContent,
+  };
+}
+
 export function errorContent(text: string) {
   return {
     content: [

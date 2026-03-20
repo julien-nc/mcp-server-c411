@@ -1,5 +1,5 @@
 import { getNestedNumber, getNestedString } from './data-utils.js';
-import type { JsonRecord } from './types.js';
+import type { JsonRecord, SearchResultItem } from './types.js';
 
 function formatBytes(size: unknown): string | null {
   if (typeof size !== 'number' || !Number.isFinite(size) || size <= 0) {
@@ -32,6 +32,11 @@ function getInfoHash(record: JsonRecord): string | null {
 }
 
 function formatTorrentResult(item: unknown): string | null {
+  const structured = toTorrentResult(item);
+  return structured ? formatStructuredSearchResult(structured) : null;
+}
+
+function toTorrentResult(item: unknown): SearchResultItem | null {
   if (!item || typeof item !== 'object') {
     return null;
   }
@@ -42,95 +47,120 @@ function formatTorrentResult(item: unknown): string | null {
     return null;
   }
 
-  const parts = [`Title: ${title}`];
   const category = getNestedString(record, ['category', 'name']);
   const subcategory = getNestedString(record, ['subcategory', 'name']);
-  const size = getNestedString(record, ['formattedSize']) ?? formatBytes(getNestedNumber(record, ['size']));
+  const sizeBytes = getNestedNumber(record, ['size']);
+  const size = getNestedString(record, ['formattedSize']) ?? formatBytes(sizeBytes);
   const seeders = getNestedNumber(record, ['seeders']);
   const leechers = getNestedNumber(record, ['leechers']);
   const uploader = getNestedString(record, ['uploader', 'username'], ['uploader', 'name']);
   const infoHash = getInfoHash(record);
 
-  if (category) {
-    parts.push(`Category: ${subcategory ? `${category} / ${subcategory}` : category}`);
-  }
-
-  if (size) {
-    parts.push(`Size: ${size}`);
-  }
-
-  if (seeders !== null) {
-    parts.push(`Seeds: ${seeders}`);
-  }
-
-  if (leechers !== null) {
-    parts.push(`Leechers: ${leechers}`);
-  }
-
-  if (uploader) {
-    parts.push(`Uploader: ${uploader}`);
-  }
-
-  if (infoHash) {
-    parts.push(`InfoHash: ${infoHash}`);
-  }
-
-  return parts.join(' | ');
+  return {
+    title,
+    type: 'torrent',
+    ...(category ? { category } : {}),
+    ...(subcategory ? { subcategory } : {}),
+    ...(size ? { size } : {}),
+    ...(sizeBytes !== null ? { sizeBytes } : {}),
+    ...(seeders !== null ? { seeders } : {}),
+    ...(leechers !== null ? { leechers } : {}),
+    ...(uploader ? { uploader } : {}),
+    ...(infoHash ? { infoHash } : {}),
+  };
 }
 
 function formatReleaseResult(item: JsonRecord): string | null {
+  const structured = toReleaseResult(item);
+  return structured ? formatStructuredSearchResult(structured) : null;
+}
+
+function toReleaseResult(item: JsonRecord): SearchResultItem | null {
   const title = getNestedString(item, ['title'], ['name']);
   if (!title) {
     return null;
   }
 
-  const parts = [`Title: ${title}`, 'Type: release'];
   const count = Array.isArray(item.torrents) ? item.torrents.length : null;
   const seeders = getNestedNumber(item, ['seeders', 'total'], ['seeders']);
   const leechers = getNestedNumber(item, ['leechers', 'total'], ['leechers']);
 
-  if (count !== null) {
-    parts.push(`Versions: ${count}`);
-  }
-
-  if (seeders !== null) {
-    parts.push(`Seeds: ${seeders}`);
-  }
-
-  if (leechers !== null) {
-    parts.push(`Leechers: ${leechers}`);
-  }
-
-  return parts.join(' | ');
+  return {
+    title,
+    type: 'release',
+    ...(count !== null ? { versionCount: count } : {}),
+    ...(seeders !== null ? { seeders } : {}),
+    ...(leechers !== null ? { leechers } : {}),
+  };
 }
 
 function formatSeriesResult(item: JsonRecord): string | null {
+  const structured = toSeriesResult(item);
+  return structured ? formatStructuredSearchResult(structured) : null;
+}
+
+function toSeriesResult(item: JsonRecord): SearchResultItem | null {
   const title = getNestedString(item, ['title'], ['name']);
   if (!title) {
     return null;
   }
 
-  const parts = [`Title: ${title}`, 'Type: series'];
   const seasonCount = Array.isArray(item.seasons) ? item.seasons.length : null;
   const seeders = getNestedNumber(item, ['seeders', 'total'], ['seeders']);
   const leechers = getNestedNumber(item, ['leechers', 'total'], ['leechers']);
 
-  if (seasonCount !== null) {
-    parts.push(`Seasons: ${seasonCount}`);
+  return {
+    title,
+    type: 'series',
+    ...(seasonCount !== null ? { seasonCount } : {}),
+    ...(seeders !== null ? { seeders } : {}),
+    ...(leechers !== null ? { leechers } : {}),
+  };
+}
+
+export function formatStructuredSearchResult(item: SearchResultItem): string {
+  const parts = [`Title: ${item.title}`];
+
+  if (item.type !== 'torrent') {
+    parts.push(`Type: ${item.type}`);
   }
 
-  if (seeders !== null) {
-    parts.push(`Seeds: ${seeders}`);
+  if (item.category) {
+    parts.push(`Category: ${item.subcategory ? `${item.category} / ${item.subcategory}` : item.category}`);
   }
 
-  if (leechers !== null) {
-    parts.push(`Leechers: ${leechers}`);
+  if (item.size) {
+    parts.push(`Size: ${item.size}`);
+  }
+
+  if (item.versionCount !== undefined) {
+    parts.push(`Versions: ${item.versionCount}`);
+  }
+
+  if (item.seasonCount !== undefined) {
+    parts.push(`Seasons: ${item.seasonCount}`);
+  }
+
+  if (item.seeders !== undefined) {
+    parts.push(`Seeds: ${item.seeders}`);
+  }
+
+  if (item.leechers !== undefined) {
+    parts.push(`Leechers: ${item.leechers}`);
+  }
+
+  if (item.uploader) {
+    parts.push(`Uploader: ${item.uploader}`);
+  }
+
+  if (item.infoHash) {
+    parts.push(`InfoHash: ${item.infoHash}`);
   }
 
   return parts.join(' | ');
 }
 
-export function formatSearchResult(item: unknown): string | null {
+export function toStructuredSearchResult(item: unknown): SearchResultItem | null {
   if (!item || typeof item !== 'object') {
     return null;
   }
@@ -139,12 +169,17 @@ export function formatSearchResult(item: unknown): string | null {
   const itemType = getNestedString(record, ['type']);
 
   if (itemType === 'release') {
-    return formatReleaseResult(record);
+    return toReleaseResult(record);
   }
 
   if (itemType === 'series') {
-    return formatSeriesResult(record);
+    return toSeriesResult(record);
   }
 
-  return formatTorrentResult(record);
+  return toTorrentResult(record);
+}
+
+export function formatSearchResult(item: unknown): string | null {
+  const structured = toStructuredSearchResult(item);
+  return structured ? formatStructuredSearchResult(structured) : null;
 }

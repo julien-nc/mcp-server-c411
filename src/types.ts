@@ -20,6 +20,33 @@ export interface C411Session {
 
 export type JsonRecord = Record<string, unknown>;
 
+export interface SearchResultItem {
+  [key: string]: unknown;
+  title: string;
+  type: 'torrent' | 'release' | 'series';
+  category?: string;
+  subcategory?: string;
+  size?: string;
+  sizeBytes?: number;
+  seeders?: number;
+  leechers?: number;
+  uploader?: string;
+  infoHash?: string;
+  versionCount?: number;
+  seasonCount?: number;
+}
+
+export interface SearchResultPage {
+  [key: string]: unknown;
+  query: string;
+  page: number;
+  perPage: number;
+  total?: number;
+  totalPages?: number;
+  resultCount: number;
+  results: SearchResultItem[];
+}
+
 export interface DownloadResult {
   success: boolean;
   filename?: string;
