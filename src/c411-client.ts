@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { CookieJar } from 'tough-cookie';
-import { formatStructuredSearchResult, toStructuredSearchResult } from './formatters.js';
+import { toStructuredSearchResult } from './formatters.js';
 import { createHttpClient } from './http-client.js';
 import {
   MaintenanceError,
@@ -29,11 +29,13 @@ import type { SearchSortBy, SearchSortOrder } from './schemas.js';
 export class C411Client {
   private readonly client: AxiosInstance;
   private session: C411Session | null = null;
+  private authPromise: Promise<AuthResult> | null = null;
   private readonly cookieJar = new CookieJar();
   private readonly baseUrl = 'https://c411.org';
   private readonly requestTimeoutMs = 10_000;
   private readonly authRetryLimit = 2;
   private readonly authRetryDelayMs = 500;
+  private readonly torrentInfoMarker = Buffer.from('4:info');
 
   constructor(private username?: string, private password?: string) {
     this.client = createHttpClient({
@@ -105,9 +107,45 @@ export class C411Client {
   }
 
   private async reauthenticate(): Promise<AuthResult> {
-    this.session = null;
-    await this.delay(this.authRetryDelayMs);
-    return this.login();
+    return this.authenticate(true);
+  }
+
+  private async authenticate(force = false): Promise<AuthResult> {
+    if (!force && this.session?.authenticated) {
+      return { success: true };
+    }
+
+    if (this.authPromise) {
+      return this.authPromise;
+    }
+
+    const authPromise = (async () => {
+      if (force) {
+        this.session = null;
+        await this.delay(this.authRetryDelayMs);
+      }
+
+      return this.loginInternal();
+    })();
+
+    this.authPromise = authPromise;
+
+    try {
+      return await authPromise;
+    } finally {
+      if (this.authPromise === authPromise) {
+        this.authPromise = null;
+      }
+    }
+  }
+
+  private isValidTorrentFile(buffer: Buffer): boolean {
+    return (
+      buffer.length >= 3 &&
+      buffer[0] === 0x64 &&
+      buffer[buffer.length - 1] === 0x65 &&
+      buffer.includes(this.torrentInfoMarker)
+    );
   }
 
   private async withAuthentication<T>(
@@ -115,7 +153,7 @@ export class C411Client {
     authFailureMessage: string
   ): Promise<T> {
     if (!this.session?.authenticated) {
-      const loginResult = await this.login();
+      const loginResult = await this.authenticate(false);
       if (!loginResult.success) {
         throw new Error(loginResult.message || authFailureMessage);
       }
@@ -141,7 +179,12 @@ export class C411Client {
   }
 
   async login(): Promise<AuthResult> {
+    return this.authenticate(false);
+  }
+
+  private async loginInternal(): Promise<AuthResult> {
     if (!this.username || !this.password) {
+      this.session = null;
       const message = 'Authentication required. Set C411_USERNAME and C411_PASSWORD environment variables.';
       console.error(message);
       return { success: false, message };
@@ -165,18 +208,21 @@ export class C411Client {
 
       const contentType = getContentType(loginResponse.headers as Record<string, unknown>);
       if (isMaintenanceResponse(loginResponse.status, loginResponse.data, contentType)) {
+        this.session = null;
         const message = 'c411.org appears to be in maintenance mode, so authentication is temporarily unavailable.';
         console.error(message);
         return { success: false, message };
       }
 
       if (loginResponse.status === 401) {
+        this.session = null;
         const message = 'Login failed: invalid C411 username or password.';
         console.error(message);
         return { success: false, message };
       }
 
       if (loginResponse.status >= 400) {
+        this.session = null;
         const message = `Login failed: ${getErrorMessageFromResponse(loginResponse.data, contentType) || `HTTP ${loginResponse.status}`}`;
         console.error(message);
         return { success: false, message };
@@ -191,10 +237,12 @@ export class C411Client {
         return { success: true };
       }
 
+      this.session = null;
       const message = 'Login failed: authentication was not established after the login request.';
       console.error(message);
       return { success: false, message };
     } catch (error) {
+      this.session = null;
       if (error instanceof MaintenanceError) {
         console.error(error.message);
         return { success: false, message: error.message };
@@ -314,6 +362,21 @@ export class C411Client {
         const buffer = Buffer.isBuffer(response.data)
           ? response.data
           : Buffer.from(response.data);
+
+        if (!this.isValidTorrentFile(buffer)) {
+          const errorMessage = getErrorMessageFromResponse(response.data, contentType);
+          const responseDescription = errorMessage
+            ? `Unexpected download response: ${errorMessage}`
+            : `Unexpected download response with content type ${contentType ?? 'unknown'}`;
+
+          return {
+            type: 'success',
+            value: {
+              success: false,
+              error: `${responseDescription}. The payload does not look like a valid .torrent file.`,
+            },
+          };
+        }
 
         const contentDisposition = typeof response.headers['content-disposition'] === 'string'
           ? response.headers['content-disposition']
