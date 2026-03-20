@@ -20,8 +20,7 @@ export interface C411Session {
 
 export type JsonRecord = Record<string, unknown>;
 
-export interface SearchResultItem {
-  [key: string]: unknown;
+export interface SearchResultItem extends JsonRecord {
   title: string;
   type: 'torrent' | 'release' | 'series';
   category?: string;
@@ -36,8 +35,7 @@ export interface SearchResultItem {
   seasonCount?: number;
 }
 
-export interface SearchResultPage {
-  [key: string]: unknown;
+export interface SearchResultPage extends JsonRecord {
   query: string;
   page: number;
   perPage: number;
@@ -52,6 +50,99 @@ export interface DownloadResult {
   filename?: string;
   savedPath?: string;
   error?: string;
+}
+
+export interface TorrentFileEntry extends JsonRecord {
+  path: string[];
+  length?: number;
+}
+
+export interface TorrentTrustInfo extends JsonRecord {
+  enabled?: boolean;
+  score?: number;
+  votesCount?: number;
+  positiveCount?: number;
+  negativeCount?: number;
+  status?: string;
+  isTested?: boolean;
+}
+
+export interface TorrentTmdbInfo extends JsonRecord {
+  id?: number;
+  imdbId?: string;
+  type?: string;
+  title?: string;
+  originalTitle?: string;
+  year?: number;
+  overview?: string;
+  posterUrl?: string;
+  backdropUrl?: string;
+  genres?: string[];
+  rating?: number;
+  ratingCount?: number;
+  releaseDate?: string;
+  countries?: string[];
+  languages?: string[];
+  productionCompanies?: string[];
+  status?: string;
+  tagline?: string;
+}
+
+export interface TorrentCommentAuthor extends JsonRecord {
+  id?: number;
+  username?: string;
+  role?: string;
+  avatar?: string | null;
+}
+
+export interface TorrentCommentReply extends JsonRecord {
+  id?: number;
+  username?: string;
+  contentHtml?: string;
+}
+
+export interface TorrentComment extends JsonRecord {
+  id?: number;
+  contentHtml?: string;
+  contentText?: string;
+  isEdited?: boolean;
+  createdAt?: string;
+  editedAt?: string | null;
+  author?: TorrentCommentAuthor;
+  replyTo?: TorrentCommentReply;
+}
+
+export interface TorrentCommentsPage extends JsonRecord {
+  infoHash: string;
+  page: number;
+  limit: number;
+  total?: number;
+  totalPages?: number;
+  resultCount: number;
+  comments: TorrentComment[];
+}
+
+export interface TorrentDetail extends JsonRecord {
+  title: string;
+  infoHash: string;
+  category?: string;
+  subcategory?: string;
+  size?: string;
+  sizeBytes?: number;
+  seeders?: number;
+  leechers?: number;
+  completions?: number;
+  uploader?: string;
+  createdAt?: string;
+  status?: string;
+  descriptionHtml?: string;
+  isFreeleech?: boolean;
+  isExclusive?: boolean;
+  lowBitrateWarning?: boolean;
+  fileCount: number;
+  files: TorrentFileEntry[];
+  tmdb?: TorrentTmdbInfo;
+  trust?: TorrentTrustInfo;
 }
 
 export type AuthResult =

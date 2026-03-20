@@ -1,10 +1,12 @@
 # C411 MCP Server
 
-An MCP (Model Context Protocol) server for searching torrents on c411.org and downloading `.torrent` files.
+An MCP (Model Context Protocol) server for searching torrents on c411.org, fetching torrent metadata and comments, and downloading `.torrent` files.
 
 ## Features
 
 - Search torrents on c411.org
+- Get detailed torrent metadata by `infoHash`
+- Get paginated torrent comments by `infoHash`
 - Download `.torrent` files by `infoHash`
 - Reuse authenticated sessions automatically
 - Retry expired auth with a small delay and bounded retry count
@@ -83,13 +85,33 @@ To use this server with an MCP client (like Claude Desktop), add to your client 
 Search for torrents on c411.org.
 
 **Parameters:**
-- `query` (string, required): Search query
-- `sortBy` (string, optional): Sort criteria. One of `relevance`, `seeders`, `leechers`, `size`, `createdAd`, `name`, `completions`, `comments`, `category`. Defaults to `relevance`.
+- `query` (string, required): Search query, trimmed, 1 to 200 characters
+- `sortBy` (string, optional): Sort criteria. One of `relevance`, `seeders`, `leechers`, `size`, `createdAt`, `name`, `completions`, `comments`, `category`. Defaults to `relevance`.
 - `sortOrder` (string, optional): Sort order. One of `asc`, `desc`. Defaults to `desc`.
 - `page` (number, optional): Result page number. Defaults to `1`.
-- `perPage` (number, optional): Number of results per page. Defaults to `25`.
+- `perPage` (number, optional): Number of results per page. Defaults to `25`, maximum `100`.
 
 **Returns:** List of torrent results with titles, sizes, seed counts, and `infoHash` when available.
+
+### get_c411_torrent_info
+
+Get detailed metadata for a torrent on c411.org.
+
+**Parameters:**
+- `infoHash` (string, required): The 40-character hex `infoHash` of the torrent
+
+**Returns:** Structured torrent metadata including title, category, size, seeder and leecher counts, completion count, uploader, creation date, file list, TMDB data when available, and trust information.
+
+### get_c411_torrent_comments
+
+Get paginated comments for a torrent on c411.org.
+
+**Parameters:**
+- `infoHash` (string, required): The 40-character hex `infoHash` of the torrent
+- `page` (number, optional): Comment page number. Defaults to `1`.
+- `limit` (number, optional): Number of comments per page. Defaults to `20`, maximum `100`.
+
+**Returns:** Structured comment results with pagination metadata and normalized comment entries, including HTML content, plain-text content, author info, timestamps, and reply targets when present.
 
 ### download_c411_torrent
 
@@ -110,10 +132,10 @@ outputDir: "/tmp"
 ## Project structure
 
 - `src/index.ts`: bootstrap only; creates the MCP server and starts stdio
-- `src/c411-client.ts`: c411 auth, retries, search, and download logic
+- `src/c411-client.ts`: c411 auth, retries, search, torrent info, comments, and download logic
 - `src/register-tools.ts`: MCP tool registration
-- `src/formatters.ts`: search result formatting helpers
-- `src/response-utils.ts`: response parsing and maintenance detection helpers
+- `src/formatters.ts`: formatting and normalization helpers for search, torrent info, and comments
+- `src/http-response-utils.ts`: response parsing and maintenance detection helpers
 - `src/http-client.ts`: isolated Axios + cookie-jar setup
 - `src/schemas.ts`: Zod tool schemas
 - `src/types.ts`: shared TypeScript types

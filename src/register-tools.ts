@@ -1,8 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { C411Client } from './c411-client.js';
-import { formatStructuredSearchResult } from './formatters.js';
-import { downloadToolOutputSchema, downloadToolSchema, searchToolOutputSchema, searchToolSchema } from './schemas.js';
-import { errorContent, textContent, textWithStructuredContent } from './tool-utils.js';
+import { formatStructuredSearchResult, formatStructuredTorrentCommentsPage, formatStructuredTorrentDetail } from './formatters.js';
+import { downloadToolOutputSchema, downloadToolSchema, searchToolOutputSchema, searchToolSchema, torrentCommentsToolOutputSchema, torrentCommentsToolSchema, torrentInfoToolOutputSchema, torrentInfoToolSchema } from './schemas.js';
+import { errorContent, textWithStructuredContent } from './tool-utils.js';
 
 export function registerTools(server: McpServer, client: C411Client): void {
   server.registerTool('search_c411', {
@@ -35,5 +35,31 @@ export function registerTools(server: McpServer, client: C411Client): void {
         savedPath: result.savedPath || `Saved ${result.filename}`,
       })
       : errorContent(result.error || 'Download failed');
+  });
+
+  server.registerTool('get_c411_torrent_info', {
+    description: 'Get detailed metadata for a c411.org torrent by its infoHash.',
+    inputSchema: torrentInfoToolSchema,
+    outputSchema: torrentInfoToolOutputSchema,
+  }, async (args) => {
+    try {
+      const detail = await client.getTorrentInfo(args.infoHash);
+      return textWithStructuredContent(formatStructuredTorrentDetail(detail), detail);
+    } catch (error) {
+      return errorContent(error instanceof Error ? error.message : 'Torrent lookup failed');
+    }
+  });
+
+  server.registerTool('get_c411_torrent_comments', {
+    description: 'Get comments for a c411.org torrent by its infoHash.',
+    inputSchema: torrentCommentsToolSchema,
+    outputSchema: torrentCommentsToolOutputSchema,
+  }, async (args) => {
+    try {
+      const commentsPage = await client.getTorrentComments(args.infoHash, args.page, args.limit);
+      return textWithStructuredContent(formatStructuredTorrentCommentsPage(commentsPage), commentsPage);
+    } catch (error) {
+      return errorContent(error instanceof Error ? error.message : 'Torrent comments lookup failed');
+    }
   });
 }

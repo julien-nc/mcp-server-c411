@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { CookieJar } from 'tough-cookie';
-import { toStructuredSearchResult } from './formatters.js';
+import { toStructuredSearchResult, toStructuredTorrentDetail, toTorrentComments } from './formatters.js';
 import { createHttpClient } from './http-client.js';
 import {
   MaintenanceError,
@@ -23,6 +23,8 @@ import type {
   C411Session,
   DownloadResult,
   SearchResultPage,
+  TorrentCommentsPage,
+  TorrentDetail,
 } from './types.js';
 import type { SearchSortBy, SearchSortOrder } from './schemas.js';
 
@@ -178,6 +180,50 @@ export class C411Client {
     throw new Error('Authentication expired and re-login failed after retries.');
   }
 
+  private async getJsonWithAuthentication<T>(
+    url: string,
+    referer: string,
+    notFoundMessage: string,
+    failurePrefix: string
+  ): Promise<T> {
+    return this.withAuthentication<T>(async () => {
+      const response = await this.client.get<unknown>(url, {
+        headers: {
+          'Accept': 'application/json',
+          'Referer': referer,
+        },
+      });
+
+      const contentType = getContentType(response.headers as Record<string, unknown>);
+      const responseUrl = getResponseUrl(response.request);
+
+      if (isMaintenanceResponse(response.status, response.data, contentType)) {
+        throw new MaintenanceError();
+      }
+
+      if (isAuthenticationFailureResponse(response.status, response.data, contentType, responseUrl)) {
+        return { type: 'reauth' };
+      }
+
+      if (response.status === 404) {
+        throw new Error(notFoundMessage);
+      }
+
+      if (response.status >= 400) {
+        const errorMessage = getErrorMessageFromResponse(
+          response.data,
+          contentType
+        ) || `HTTP ${response.status}`;
+        throw new Error(`${failurePrefix} - ${errorMessage}`);
+      }
+
+      return {
+        type: 'success',
+        value: response.data as T,
+      };
+    }, 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.');
+  }
+
   async login(): Promise<AuthResult> {
     return this.authenticate(false);
   }
@@ -317,6 +363,64 @@ export class C411Client {
     } catch (error) {
       const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
       console.error(`Error searching c411.org: ${message}`);
+      throw new Error(message);
+    }
+  }
+
+  async getTorrentInfo(infoHash: string): Promise<TorrentDetail> {
+    if (!infoHash || !/^[a-fA-F0-9]{40}$/.test(infoHash)) {
+      throw new Error('Invalid infoHash. Must be a 40-character hex string.');
+    }
+
+    try {
+      const referer = `${this.baseUrl}/torrents/${infoHash}`;
+      const torrentResponse = await this.getJsonWithAuthentication<unknown>(
+        `/api/torrents/${infoHash}`,
+        referer,
+        'Torrent not found.',
+        'Torrent lookup failed'
+      );
+
+      const detail = toStructuredTorrentDetail(torrentResponse);
+      if (!detail) {
+        throw new Error('Torrent lookup returned an unexpected response format.');
+      }
+
+      return detail;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
+      console.error(`Error fetching torrent info: ${message}`);
+      throw new Error(message);
+    }
+  }
+
+  async getTorrentComments(infoHash: string, page = 1, limit = 20): Promise<TorrentCommentsPage> {
+    if (!infoHash || !/^[a-fA-F0-9]{40}$/.test(infoHash)) {
+      throw new Error('Invalid infoHash. Must be a 40-character hex string.');
+    }
+
+    try {
+      const referer = `${this.baseUrl}/torrents/${infoHash}`;
+      const response = await this.getJsonWithAuthentication<C411ApiListResponse<unknown>>(
+        `/api/torrents/${infoHash}/comments?page=${page}&limit=${limit}`,
+        referer,
+        'Torrent comments not found.',
+        'Torrent comments lookup failed'
+      );
+
+      const comments = toTorrentComments(response?.data);
+      return {
+        infoHash,
+        page,
+        limit,
+        ...(response?.meta?.total !== undefined ? { total: response.meta.total } : {}),
+        ...(response?.meta?.totalPages !== undefined ? { totalPages: response.meta.totalPages } : {}),
+        resultCount: comments.length,
+        comments,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : getSafeErrorMessage(error, this.requestTimeoutMs);
+      console.error(`Error fetching torrent comments: ${message}`);
       throw new Error(message);
     }
   }

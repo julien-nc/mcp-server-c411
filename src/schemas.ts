@@ -58,5 +58,108 @@ export const downloadToolOutputSchema = z.object({
   savedPath: z.string(),
 });
 
+export const torrentInfoToolSchema = z.object({
+  infoHash: z.string().trim().regex(/^[a-fA-F0-9]{40}$/, 'infoHash must be a 40-character hex string').describe('The 40-character hex infoHash of the torrent'),
+});
+
+export const torrentCommentsToolSchema = z.object({
+  infoHash: z.string().trim().regex(/^[a-fA-F0-9]{40}$/, 'infoHash must be a 40-character hex string').describe('The 40-character hex infoHash of the torrent'),
+  page: z.number().int().positive().optional().default(1).describe('Comment page number. Defaults to 1.'),
+  limit: z.number().int().positive().max(100).optional().default(20).describe('Number of comments per page. Defaults to 20.'),
+});
+
+export const torrentFileEntrySchema = z.object({
+  path: z.array(z.string()),
+  length: z.number().nonnegative().optional(),
+});
+
+export const torrentTrustSchema = z.object({
+  enabled: z.boolean().optional(),
+  score: z.number().optional(),
+  votesCount: z.number().int().nonnegative().optional(),
+  positiveCount: z.number().int().nonnegative().optional(),
+  negativeCount: z.number().int().nonnegative().optional(),
+  status: z.string().optional(),
+  isTested: z.boolean().optional(),
+});
+
+export const torrentTmdbSchema = z.object({
+  id: z.number().optional(),
+  imdbId: z.string().optional(),
+  type: z.string().optional(),
+  title: z.string().optional(),
+  originalTitle: z.string().optional(),
+  year: z.number().optional(),
+  overview: z.string().optional(),
+  posterUrl: z.string().optional(),
+  backdropUrl: z.string().optional(),
+  genres: z.array(z.string()).optional(),
+  rating: z.number().optional(),
+  ratingCount: z.number().int().nonnegative().optional(),
+  releaseDate: z.string().optional(),
+  countries: z.array(z.string()).optional(),
+  languages: z.array(z.string()).optional(),
+  productionCompanies: z.array(z.string()).optional(),
+  status: z.string().optional(),
+  tagline: z.string().optional(),
+});
+
+export const torrentCommentAuthorSchema = z.object({
+  id: z.number().optional(),
+  username: z.string().optional(),
+  role: z.string().optional(),
+  avatar: z.string().nullable().optional(),
+});
+
+export const torrentCommentReplySchema = z.object({
+  id: z.number().optional(),
+  username: z.string().optional(),
+  contentHtml: z.string().optional(),
+});
+
+export const torrentCommentSchema = z.object({
+  id: z.number().optional(),
+  contentHtml: z.string().optional(),
+  contentText: z.string().optional(),
+  isEdited: z.boolean().optional(),
+  createdAt: z.string().optional(),
+  editedAt: z.string().nullable().optional(),
+  author: torrentCommentAuthorSchema.optional(),
+  replyTo: torrentCommentReplySchema.optional(),
+});
+
+export const torrentInfoToolOutputSchema = z.object({
+  title: z.string(),
+  infoHash: z.string(),
+  category: z.string().optional(),
+  subcategory: z.string().optional(),
+  size: z.string().optional(),
+  sizeBytes: z.number().optional(),
+  seeders: z.number().optional(),
+  leechers: z.number().optional(),
+  completions: z.number().int().nonnegative().optional(),
+  uploader: z.string().optional(),
+  createdAt: z.string().optional(),
+  status: z.string().optional(),
+  descriptionHtml: z.string().optional(),
+  isFreeleech: z.boolean().optional(),
+  isExclusive: z.boolean().optional(),
+  lowBitrateWarning: z.boolean().optional(),
+  fileCount: z.number().int().nonnegative(),
+  files: z.array(torrentFileEntrySchema),
+  tmdb: torrentTmdbSchema.optional(),
+  trust: torrentTrustSchema.optional(),
+});
+
+export const torrentCommentsToolOutputSchema = z.object({
+  infoHash: z.string(),
+  page: z.number().int().positive(),
+  limit: z.number().int().positive(),
+  total: z.number().int().nonnegative().optional(),
+  totalPages: z.number().int().nonnegative().optional(),
+  resultCount: z.number().int().nonnegative(),
+  comments: z.array(torrentCommentSchema),
+});
+
 export type SearchSortBy = z.infer<typeof searchSortBySchema>;
 export type SearchSortOrder = z.infer<typeof searchSortOrderSchema>;
