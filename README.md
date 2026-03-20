@@ -2,6 +2,24 @@
 
 An MCP (Model Context Protocol) server for searching torrents on c411.org, fetching torrent metadata and comments, and downloading `.torrent` files.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Running the server](#running-the-server)
+  - [Authentication](#authentication)
+  - [Auth failure behavior](#auth-failure-behavior)
+  - [MCP Client Configuration](#mcp-client-configuration)
+- [Tools](#tools)
+  - [search_c411](#search_c411)
+  - [get_c411_torrent_info](#get_c411_torrent_info)
+  - [get_c411_torrent_comments](#get_c411_torrent_comments)
+  - [download_c411_torrent](#download_c411_torrent)
+- [Project structure](#project-structure)
+- [Development](#development)
+- [Notes](#notes)
+
 ## Features
 
 - Search torrents on c411.org
@@ -76,6 +94,47 @@ To use this server with an MCP client (like Claude Desktop), add to your client 
     }
   }
 }
+```
+
+For OpenCode, configure the server in your OpenCode config under `mcp` using a local MCP entry:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "c411": {
+      "type": "local",
+      "command": ["node", "/path/to/c411-mcp-server/build/index.js"],
+      "enabled": true,
+      "environment": {
+        "C411_USERNAME": "your_username",
+        "C411_PASSWORD": "your_password"
+      }
+    }
+  }
+}
+```
+
+OpenCode documents MCP servers under the `mcp` key, with local servers using `type: "local"`, a `command` array, and `environment` for env vars.
+
+You can also add it from the OpenCode CLI:
+
+```bash
+opencode mcp add
+```
+
+Then choose a local MCP server and enter the equivalent values:
+- name: `c411`
+- type: `local`
+- command: `node /path/to/c411-mcp-server/build/index.js`
+- environment:
+  - `C411_USERNAME=your_username`
+  - `C411_PASSWORD=your_password`
+
+Afterward, you can verify it was added with:
+
+```bash
+opencode mcp list
 ```
 
 ## Tools
