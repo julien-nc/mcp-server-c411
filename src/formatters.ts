@@ -62,6 +62,66 @@ function stripHtml(value: string): string {
     .trim();
 }
 
+function htmlToMarkdown(value: string): string {
+  let md = value;
+
+  md = md.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '# $1\n\n');
+  md = md.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '## $1\n\n');
+  md = md.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '### $1\n\n');
+  md = md.replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, '#### $1\n\n');
+
+  md = md.replace(/<br\s*\/?>/gi, '\n');
+  md = md.replace(/<\/p>/gi, '\n\n');
+  md = md.replace(/<\/div>/gi, '\n');
+
+  md = md.replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**');
+  md = md.replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, '**$1**');
+  md = md.replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*');
+  md = md.replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*');
+
+  md = md.replace(/<a[^>]+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)');
+
+  md = md.replace(/<img[^>]+src="([^"]*)"[^>]*(?:\/>|><\/img>)/gi, '![]($1)');
+
+  md = md.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (_, table) => {
+    const rows: string[] = [];
+    const rowMatches = table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+    for (const rowMatch of rowMatches) {
+      const cells: string[] = [];
+      const cellMatches = rowMatch[1].matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi);
+      for (const cellMatch of cellMatches) {
+        cells.push(stripHtml(cellMatch[1]).trim());
+      }
+      if (cells.length > 0) {
+        rows.push(`| ${cells.join(' | ')} |`);
+      }
+    }
+    if (rows.length > 0) {
+      const colCount = rows[0].split('|').length - 2;
+      const header = `| ${Array(colCount).fill('---').join(' | ')} |`;
+      return [header, ...rows].join('\n') + '\n';
+    }
+    return '';
+  });
+
+  md = md.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n');
+
+  md = md.replace(/<[^>]+>/g, '');
+
+  md = md.replace(/&nbsp;/gi, ' ');
+  md = md.replace(/&amp;/gi, '&');
+  md = md.replace(/&lt;/gi, '<');
+  md = md.replace(/&gt;/gi, '>');
+  md = md.replace(/&#39;/gi, "'");
+  md = md.replace(/&quot;/gi, '"');
+
+  md = md.replace(/\n{3,}/g, '\n\n');
+  md = md.replace(/^[\s\n]+/gm, '');
+  md = md.replace(/[\s\n]+$/gm, '');
+
+  return md.trim();
+}
+
 function toTorrentFiles(value: unknown): TorrentFileEntry[] {
   if (!Array.isArray(value)) {
     return [];
@@ -482,6 +542,10 @@ export function formatStructuredTorrentDetail(item: TorrentDetail): string {
 
   if (item.trust?.status) {
     parts.push(`Trust: ${item.trust.status}${item.trust.score !== undefined ? ` (${item.trust.score})` : ''}`);
+  }
+
+  if (item.descriptionHtml) {
+    parts.push(`\n${htmlToMarkdown(item.descriptionHtml)}`);
   }
 
   return parts.join(' | ');
