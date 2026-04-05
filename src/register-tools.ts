@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { C411Client } from './c411-client.js';
-import { formatStructuredSearchResult, formatStructuredTorrentCommentsPage, formatStructuredTorrentDetail } from './formatters.js';
-import { downloadToolOutputSchema, downloadToolSchema, searchToolOutputSchema, searchToolSchema, torrentCommentsToolOutputSchema, torrentCommentsToolSchema, torrentInfoToolOutputSchema, torrentInfoToolSchema } from './schemas.js';
+import { formatStructuredSearchResult, formatStructuredTorrentCommentsPage, formatStructuredTorrentDetail, formatStructuredUserInfo } from './formatters.js';
+import { downloadToolOutputSchema, downloadToolSchema, searchToolOutputSchema, searchToolSchema, torrentCommentsToolOutputSchema, torrentCommentsToolSchema, torrentInfoToolOutputSchema, torrentInfoToolSchema, userInfoToolOutputSchema, userInfoToolSchema } from './schemas.js';
 import { errorContent, textWithStructuredContent } from './tool-utils.js';
 
 export function registerTools(server: McpServer, client: C411Client): void {
@@ -87,6 +87,22 @@ export function registerTools(server: McpServer, client: C411Client): void {
         limit: args.limit,
         resultCount: 0,
         comments: [],
+        error: message,
+      });
+    }
+  });
+
+  server.registerTool('get_c411_user_info', {
+    description: 'Get the current authenticated user info from c411.org.',
+    inputSchema: userInfoToolSchema,
+    outputSchema: userInfoToolOutputSchema,
+  }, async () => {
+    try {
+      const user = await client.getCurrentUser();
+      return textWithStructuredContent(formatStructuredUserInfo(user), user);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'User info lookup failed';
+      return errorContent(message, {
         error: message,
       });
     }

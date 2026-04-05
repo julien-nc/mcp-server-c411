@@ -1,6 +1,68 @@
 export interface AuthStateResponse {
   authenticated?: boolean;
+  emailVerificationRequired?: boolean;
   user?: unknown;
+}
+
+export interface UserBadge extends JsonRecord {
+  type?: string;
+  label?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface UserTierSummary extends JsonRecord {
+  slug?: string;
+  name?: string;
+  minUploads?: number;
+  uploadsNeeded?: number;
+}
+
+export interface UserUploaderTier extends JsonRecord {
+  tier?: UserTierSummary;
+  validatedUploads?: number;
+  pendingCount?: number;
+  maxPending?: number | null;
+  canBypassValidation?: boolean;
+  nextTier?: UserTierSummary;
+  tiersEnabled?: boolean;
+}
+
+export interface UserInfo extends JsonRecord {
+  authenticated?: boolean;
+  emailVerificationRequired?: boolean;
+  id?: number;
+  username?: string;
+  roles?: string[];
+  badge?: UserBadge;
+  email?: string;
+  emailVerified?: boolean;
+  reputation?: number;
+  warnings?: number;
+  isWarned?: boolean;
+  isDonor?: boolean;
+  isFreeleech?: boolean;
+  isPersonalFreeleech?: boolean;
+  showXxxContent?: boolean;
+  theme?: string;
+  torrentViewPreference?: string;
+  slotProfilePreference?: string | null;
+  avatar?: string | null;
+  uploaded?: number;
+  downloaded?: number;
+  uploadCredit?: number;
+  downloadCredit?: number;
+  ratio?: number;
+  canDownload?: boolean;
+  minRatioForDownload?: number;
+  ratioWarning?: number | null;
+  createdAt?: string;
+  validatedUploadsCount?: number;
+  isEarlyAdopter?: boolean;
+  isTeam?: boolean;
+  teamName?: string | null;
+  uploaderBlocked?: boolean;
+  uploaderTier?: UserUploaderTier;
 }
 
 export interface C411ApiListResponse<T> {

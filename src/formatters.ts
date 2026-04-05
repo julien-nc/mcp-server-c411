@@ -1,5 +1,5 @@
 import { getNestedNumber, getNestedString } from './data-utils.js';
-import type { JsonRecord, SearchResultItem, TorrentComment, TorrentCommentAuthor, TorrentCommentReply, TorrentCommentsPage, TorrentDetail, TorrentFileEntry, TorrentTmdbInfo, TorrentTrustInfo } from './types.js';
+import type { JsonRecord, SearchResultItem, TorrentComment, TorrentCommentAuthor, TorrentCommentReply, TorrentCommentsPage, TorrentDetail, TorrentFileEntry, TorrentTmdbInfo, TorrentTrustInfo, UserInfo } from './types.js';
 
 function formatBytes(size: unknown): string | null {
   if (typeof size !== 'number' || !Number.isFinite(size) || size <= 0) {
@@ -554,4 +554,64 @@ export function formatStructuredTorrentDetail(item: TorrentDetail): string {
 export function formatSearchResult(item: unknown): string | null {
   const structured = toStructuredSearchResult(item);
   return structured ? formatStructuredSearchResult(structured) : null;
+}
+
+export function formatStructuredUserInfo(user: UserInfo): string {
+  const parts: string[] = [];
+
+  if (user.username) {
+    parts.push(`Username: ${user.username}`);
+  }
+
+  if (user.email) {
+    parts.push(`Email: ${user.email}`);
+  }
+
+  if (user.roles && user.roles.length > 0) {
+    parts.push(`Roles: ${user.roles.join(', ')}`);
+  }
+
+  if (user.badge?.label) {
+    parts.push(`Badge: ${user.badge.label}`);
+  }
+
+  if (user.ratio !== undefined) {
+    parts.push(`Ratio: ${user.ratio.toFixed(2)}`);
+  }
+
+  if (user.uploaded !== undefined) {
+    const uploaded = formatBytes(user.uploaded);
+    if (uploaded) {
+      parts.push(`Uploaded: ${uploaded}`);
+    }
+  }
+
+  if (user.downloaded !== undefined) {
+    const downloaded = formatBytes(user.downloaded);
+    if (downloaded) {
+      parts.push(`Downloaded: ${downloaded}`);
+    }
+  }
+
+  if (user.isFreeleech) {
+    parts.push('Freeleech: yes');
+  }
+
+  if (user.canDownload !== undefined) {
+    parts.push(`Can download: ${user.canDownload ? 'yes' : 'no'}`);
+  }
+
+  if (user.uploaderTier?.tier?.name) {
+    parts.push(`Uploader tier: ${user.uploaderTier.tier.name}`);
+  }
+
+  if (user.validatedUploadsCount !== undefined) {
+    parts.push(`Validated uploads: ${user.validatedUploadsCount}`);
+  }
+
+  if (user.createdAt) {
+    parts.push(`Created: ${user.createdAt}`);
+  }
+
+  return parts.join(' | ');
 }

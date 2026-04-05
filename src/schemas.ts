@@ -166,5 +166,69 @@ export const torrentCommentsToolOutputSchema = z.object({
   error: z.string().optional(),
 });
 
+export const userInfoToolSchema = z.object({});
+
+export const userTierSummarySchema = z.object({
+  slug: z.string().optional(),
+  name: z.string().optional(),
+  minUploads: z.number().optional(),
+  uploadsNeeded: z.number().optional(),
+});
+
+export const userBadgeSchema = z.object({
+  type: z.string().optional(),
+  label: z.string().optional(),
+  icon: z.string().optional(),
+  color: z.string().optional(),
+});
+
+export const userUploaderTierSchema = z.object({
+  tier: userTierSummarySchema.optional(),
+  validatedUploads: z.number().optional(),
+  pendingCount: z.number().optional(),
+  maxPending: z.number().nullable().optional(),
+  canBypassValidation: z.boolean().optional(),
+  nextTier: userTierSummarySchema.optional(),
+  tiersEnabled: z.boolean().optional(),
+});
+
+export const userInfoToolOutputSchema = z.object({
+  authenticated: z.boolean().optional(),
+  emailVerificationRequired: z.boolean().optional(),
+  id: z.number().optional(),
+  username: z.string().optional(),
+  roles: z.array(z.string()).optional(),
+  badge: userBadgeSchema.optional(),
+  email: z.string().optional(),
+  emailVerified: z.boolean().optional(),
+  reputation: z.number().optional(),
+  warnings: z.number().optional(),
+  isWarned: z.boolean().optional(),
+  isDonor: z.boolean().optional(),
+  isFreeleech: z.boolean().optional(),
+  isPersonalFreeleech: z.boolean().optional(),
+  showXxxContent: z.boolean().optional(),
+  theme: z.string().optional(),
+  torrentViewPreference: z.string().optional(),
+  slotProfilePreference: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
+  uploaded: z.number().optional(),
+  downloaded: z.number().optional(),
+  uploadCredit: z.number().optional(),
+  downloadCredit: z.number().optional(),
+  ratio: z.number().optional(),
+  canDownload: z.boolean().optional(),
+  minRatioForDownload: z.number().optional(),
+  ratioWarning: z.number().nullable().optional(),
+  createdAt: z.string().optional(),
+  validatedUploadsCount: z.number().optional(),
+  isEarlyAdopter: z.boolean().optional(),
+  isTeam: z.boolean().optional(),
+  teamName: z.string().nullable().optional(),
+  uploaderBlocked: z.boolean().optional(),
+  uploaderTier: userUploaderTierSchema.optional(),
+  error: z.string().optional(),
+});
+
 export type SearchSortBy = z.infer<typeof searchSortBySchema>;
 export type SearchSortOrder = z.infer<typeof searchSortOrderSchema>;

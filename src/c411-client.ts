@@ -25,6 +25,8 @@ import type {
   SearchResultPage,
   TorrentCommentsPage,
   TorrentDetail,
+  JsonRecord,
+  UserInfo,
 } from './types.js';
 import type { SearchSortBy, SearchSortOrder } from './schemas.js';
 
@@ -226,6 +228,104 @@ export class C411Client {
 
   async login(): Promise<AuthResult> {
     return this.authenticate(false);
+  }
+
+  async getCurrentUser(): Promise<UserInfo> {
+    try {
+      return await this.withAuthentication<UserInfo>(async () => {
+        const response = await this.client.get<AuthStateResponse>('/api/auth/me', {
+          headers: {
+            'Accept': 'application/json',
+            'Referer': `${this.baseUrl}/`,
+          },
+        });
+
+        const contentType = getContentType(response.headers as Record<string, unknown>);
+        const responseUrl = getResponseUrl(response.request);
+
+        if (isMaintenanceResponse(response.status, response.data, contentType)) {
+          throw new MaintenanceError();
+        }
+
+        if (isAuthenticationFailureResponse(response.status, response.data, contentType, responseUrl)) {
+          return { type: 'reauth' };
+        }
+
+        if (response.status >= 400) {
+          const errorMessage = getErrorMessageFromResponse(
+            response.data,
+            contentType
+          ) || `HTTP ${response.status}`;
+          throw new Error(`User info lookup failed - ${errorMessage}`);
+        }
+
+        const userRecord = response.data?.user && typeof response.data.user === 'object'
+          ? response.data.user as JsonRecord
+          : null;
+
+        const user: UserInfo = {
+          authenticated: response.data?.authenticated,
+          emailVerificationRequired: response.data?.emailVerificationRequired,
+          ...(userRecord ? {
+            id: typeof userRecord.id === 'number' ? userRecord.id : undefined,
+            username: typeof userRecord.username === 'string' ? userRecord.username : undefined,
+            roles: Array.isArray(userRecord.roles)
+              ? userRecord.roles.filter((role): role is string => typeof role === 'string')
+              : undefined,
+            badge: userRecord.badge && typeof userRecord.badge === 'object'
+              ? userRecord.badge as UserInfo['badge']
+              : undefined,
+            email: typeof userRecord.email === 'string' ? userRecord.email : undefined,
+            emailVerified: typeof userRecord.emailVerified === 'boolean' ? userRecord.emailVerified : undefined,
+            reputation: typeof userRecord.reputation === 'number' ? userRecord.reputation : undefined,
+            warnings: typeof userRecord.warnings === 'number' ? userRecord.warnings : undefined,
+            isWarned: typeof userRecord.isWarned === 'boolean' ? userRecord.isWarned : undefined,
+            isDonor: typeof userRecord.isDonor === 'boolean' ? userRecord.isDonor : undefined,
+            isFreeleech: typeof userRecord.isFreeleech === 'boolean' ? userRecord.isFreeleech : undefined,
+            isPersonalFreeleech: typeof userRecord.isPersonalFreeleech === 'boolean' ? userRecord.isPersonalFreeleech : undefined,
+            showXxxContent: typeof userRecord.showXxxContent === 'boolean' ? userRecord.showXxxContent : undefined,
+            theme: typeof userRecord.theme === 'string' ? userRecord.theme : undefined,
+            torrentViewPreference: typeof userRecord.torrentViewPreference === 'string' ? userRecord.torrentViewPreference : undefined,
+            slotProfilePreference: typeof userRecord.slotProfilePreference === 'string' || userRecord.slotProfilePreference === null
+              ? userRecord.slotProfilePreference as string | null
+              : undefined,
+            avatar: typeof userRecord.avatar === 'string' || userRecord.avatar === null
+              ? userRecord.avatar as string | null
+              : undefined,
+            uploaded: typeof userRecord.uploaded === 'number' ? userRecord.uploaded : undefined,
+            downloaded: typeof userRecord.downloaded === 'number' ? userRecord.downloaded : undefined,
+            uploadCredit: typeof userRecord.uploadCredit === 'number' ? userRecord.uploadCredit : undefined,
+            downloadCredit: typeof userRecord.downloadCredit === 'number' ? userRecord.downloadCredit : undefined,
+            ratio: typeof userRecord.ratio === 'number' ? userRecord.ratio : undefined,
+            canDownload: typeof userRecord.canDownload === 'boolean' ? userRecord.canDownload : undefined,
+            minRatioForDownload: typeof userRecord.minRatioForDownload === 'number' ? userRecord.minRatioForDownload : undefined,
+            ratioWarning: typeof userRecord.ratioWarning === 'number' || userRecord.ratioWarning === null
+              ? userRecord.ratioWarning as number | null
+              : undefined,
+            createdAt: typeof userRecord.createdAt === 'string' ? userRecord.createdAt : undefined,
+            validatedUploadsCount: typeof userRecord.validatedUploadsCount === 'number' ? userRecord.validatedUploadsCount : undefined,
+            isEarlyAdopter: typeof userRecord.isEarlyAdopter === 'boolean' ? userRecord.isEarlyAdopter : undefined,
+            isTeam: typeof userRecord.isTeam === 'boolean' ? userRecord.isTeam : undefined,
+            teamName: typeof userRecord.teamName === 'string' || userRecord.teamName === null
+              ? userRecord.teamName as string | null
+              : undefined,
+            uploaderBlocked: typeof userRecord.uploaderBlocked === 'boolean' ? userRecord.uploaderBlocked : undefined,
+            uploaderTier: userRecord.uploaderTier && typeof userRecord.uploaderTier === 'object'
+              ? userRecord.uploaderTier as UserInfo['uploaderTier']
+              : undefined,
+          } : {}),
+        };
+
+        return {
+          type: 'success',
+          value: user,
+        };
+      }, 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.');
+    } catch (error) {
+      const message = getSafeErrorMessage(error, this.requestTimeoutMs);
+      console.error(`Error fetching current user info: ${message}`);
+      throw new Error(message);
+    }
   }
 
   private async loginInternal(): Promise<AuthResult> {
