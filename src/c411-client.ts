@@ -480,6 +480,73 @@ export class C411Client {
     }
   }
 
+  async getCurrentUserUploads(page = 1, perPage = 100): Promise<SearchResultPage> {
+    try {
+      const user = await this.getCurrentUser();
+      const username = user.username?.trim();
+
+      if (!username) {
+        throw new Error('Current user info did not include a username.');
+      }
+
+      return await this.withAuthentication<SearchResultPage>(async () => {
+        const response = await this.client.get<C411ApiListResponse<unknown>>('/api/torrents', {
+          params: {
+            page,
+            perPage,
+            uploader: username,
+            viewMode: 'flat',
+          },
+          headers: {
+            'Accept': 'application/json',
+            'Referer': `${this.baseUrl}/torrents`,
+          },
+        });
+
+        const contentType = getContentType(response.headers as Record<string, unknown>);
+        const responseUrl = getResponseUrl(response.request);
+
+        if (isMaintenanceResponse(response.status, response.data, contentType)) {
+          throw new MaintenanceError();
+        }
+
+        if (isAuthenticationFailureResponse(response.status, response.data, contentType, responseUrl)) {
+          return { type: 'reauth' };
+        }
+
+        if (response.status >= 400) {
+          const errorMessage = getErrorMessageFromResponse(
+            response.data,
+            contentType
+          ) || `HTTP ${response.status}`;
+          throw new Error(`Uploaded torrents lookup failed - ${errorMessage}`);
+        }
+
+        const rawResults = Array.isArray(response.data?.data) ? response.data.data : [];
+        const results = rawResults
+          .map((item) => toStructuredSearchResult(item))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+        return {
+          type: 'success',
+          value: {
+            query: `uploader:${username}`,
+            page,
+            perPage,
+            total: response.data?.meta?.total,
+            totalPages: response.data?.meta?.totalPages,
+            resultCount: results.length,
+            results,
+          },
+        };
+      }, 'Unable to authenticate. Check C411_USERNAME and C411_PASSWORD environment variables.');
+    } catch (error) {
+      const message = getSafeErrorMessage(error, this.requestTimeoutMs);
+      console.error(`Error fetching current user uploads: ${message}`);
+      throw new Error(message);
+    }
+  }
+
   async getTorrentInfo(infoHash: string): Promise<TorrentDetail> {
     if (!infoHash || !/^[a-fA-F0-9]{40}$/.test(infoHash)) {
       throw new Error('Invalid infoHash. Must be a 40-character hex string.');

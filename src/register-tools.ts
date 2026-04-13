@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { C411Client } from './c411-client.js';
 import { formatStructuredSearchResult, formatStructuredTorrentCommentsPage, formatStructuredTorrentDetail, formatStructuredUserInfo } from './formatters.js';
-import { downloadToolOutputSchema, downloadToolSchema, searchToolOutputSchema, searchToolSchema, torrentCommentsToolOutputSchema, torrentCommentsToolSchema, torrentInfoToolOutputSchema, torrentInfoToolSchema, userInfoToolOutputSchema, userInfoToolSchema, SEARCH_CATEGORY } from './schemas.js';
+import { downloadToolOutputSchema, downloadToolSchema, myUploadsToolOutputSchema, myUploadsToolSchema, searchToolOutputSchema, searchToolSchema, torrentCommentsToolOutputSchema, torrentCommentsToolSchema, torrentInfoToolOutputSchema, torrentInfoToolSchema, userInfoToolOutputSchema, userInfoToolSchema, SEARCH_CATEGORY } from './schemas.js';
 import { errorContent, textWithStructuredContent } from './tool-utils.js';
 
 export function registerTools(server: McpServer, client: C411Client): void {
@@ -123,6 +123,31 @@ export function registerTools(server: McpServer, client: C411Client): void {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'User info lookup failed';
       return errorContent(message, {
+        error: message,
+      });
+    }
+  });
+
+  server.registerTool('list_my_c411_uploads', {
+    description: 'List torrents uploaded by the current authenticated c411.org user.',
+    inputSchema: myUploadsToolSchema,
+    outputSchema: myUploadsToolOutputSchema,
+  }, async (args) => {
+    try {
+      const results = await client.getCurrentUserUploads(args.page, args.perPage);
+      const text = results.results.length > 0
+        ? results.results.map((item) => formatStructuredSearchResult(item)).join('\n')
+        : 'No uploads found';
+
+      return textWithStructuredContent(text, results);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Uploaded torrents lookup failed';
+      return errorContent(message, {
+        query: 'uploader:self',
+        page: args.page,
+        perPage: args.perPage,
+        resultCount: 0,
+        results: [],
         error: message,
       });
     }

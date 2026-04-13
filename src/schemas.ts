@@ -87,6 +87,13 @@ export const searchToolOutputSchema = z.object({
   error: z.string().optional(),
 });
 
+export const myUploadsToolSchema = z.object({
+  page: z.number().int().positive().optional().default(1).describe('Result page number. Defaults to 1.'),
+  perPage: z.number().int().positive().max(100).optional().default(100).describe('Number of results per page. Defaults to 100.'),
+});
+
+export const myUploadsToolOutputSchema = searchToolOutputSchema;
+
 export const downloadToolSchema = z.object({
   infoHash: z.string().trim().regex(/^[a-fA-F0-9]{40}$/, 'infoHash must be a 40-character hex string').describe('The 40-character hex infoHash of the torrent'),
   outputDir: z.string().optional().describe('Directory where the .torrent file should be saved. Defaults to /tmp.'),

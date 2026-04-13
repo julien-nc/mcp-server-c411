@@ -152,6 +152,16 @@ Search for torrents on c411.org.
 
 **Returns:** List of torrent results with titles, sizes, seed counts, and `infoHash` when available.
 
+### list_my_c411_uploads
+
+List torrents uploaded by the current authenticated c411.org user.
+
+**Parameters:**
+- `page` (number, optional): Result page number. Defaults to `1`.
+- `perPage` (number, optional): Number of results per page. Defaults to `100`, maximum `100`.
+
+**Returns:** List of torrent results for the current user's uploads, using the same structure as `search_c411`.
+
 ### get_c411_torrent_info
 
 Get detailed metadata for a torrent on c411.org.
