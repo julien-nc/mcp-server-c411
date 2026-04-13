@@ -416,6 +416,7 @@ export class C411Client {
           name: query,
           page,
           perPage,
+          viewMode: 'flat',
         };
         if (sortBy !== undefined) {
           params.sortBy = sortBy;
