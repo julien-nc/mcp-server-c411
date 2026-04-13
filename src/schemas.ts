@@ -14,7 +14,40 @@ export const searchSortBySchema = z.enum([
 
 export const searchSortOrderSchema = z.enum(['asc', 'desc']);
 
-export const searchCategorySchema = z.enum(['1', '2', '3', '4', '5', '6', '7', '10']);
+export const SEARCH_CATEGORY = {
+  VIDEO: '1',
+  EBOOK: '2',
+  AUDIO: '3',
+  APPLICATIONS: '4',
+  VIDEO_GAMES: '5',
+  EMULATION: '6',
+  GPS: '7',
+  PRINTING_3D: '10',
+} as const;
+
+export const SEARCH_VIDEO_SUBCAT = {
+  ANIMATION: '1',
+  ANIMATION_SERIES: '2',
+  CONCERT: '3',
+  DOCUMENTARY: '4',
+  TV_SHOW: '5',
+  MOVIE: '6',
+  TV_SERIES: '7',
+  SHOW: '8',
+  SPORT: '9',
+  VIDEO_CLIPS: '10',
+} as const;
+
+export const searchCategorySchema = z.enum([
+  SEARCH_CATEGORY.VIDEO,
+  SEARCH_CATEGORY.EBOOK,
+  SEARCH_CATEGORY.AUDIO,
+  SEARCH_CATEGORY.APPLICATIONS,
+  SEARCH_CATEGORY.VIDEO_GAMES,
+  SEARCH_CATEGORY.EMULATION,
+  SEARCH_CATEGORY.GPS,
+  SEARCH_CATEGORY.PRINTING_3D,
+]);
 
 export const searchSubcatSchema = z.string().trim().min(1);
 

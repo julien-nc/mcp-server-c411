@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { C411Client } from './c411-client.js';
 import { formatStructuredSearchResult, formatStructuredTorrentCommentsPage, formatStructuredTorrentDetail, formatStructuredUserInfo } from './formatters.js';
-import { downloadToolOutputSchema, downloadToolSchema, searchToolOutputSchema, searchToolSchema, torrentCommentsToolOutputSchema, torrentCommentsToolSchema, torrentInfoToolOutputSchema, torrentInfoToolSchema, userInfoToolOutputSchema, userInfoToolSchema } from './schemas.js';
+import { downloadToolOutputSchema, downloadToolSchema, searchToolOutputSchema, searchToolSchema, torrentCommentsToolOutputSchema, torrentCommentsToolSchema, torrentInfoToolOutputSchema, torrentInfoToolSchema, userInfoToolOutputSchema, userInfoToolSchema, SEARCH_CATEGORY } from './schemas.js';
 import { errorContent, textWithStructuredContent } from './tool-utils.js';
 
 export function registerTools(server: McpServer, client: C411Client): void {
@@ -10,7 +10,7 @@ export function registerTools(server: McpServer, client: C411Client): void {
     inputSchema: searchToolSchema,
     outputSchema: searchToolOutputSchema,
   }, async (args) => {
-    if (args.subcat !== undefined && args.category !== '1') {
+    if (args.subcat !== undefined && args.category !== SEARCH_CATEGORY.VIDEO) {
       return errorContent('subcat can only be set when category is 1 (video)', {
         query: args.query,
         page: args.page,

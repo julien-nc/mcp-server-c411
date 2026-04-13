@@ -29,6 +29,7 @@ import type {
   UserInfo,
 } from './types.js';
 import type { SearchSortBy, SearchSortOrder } from './schemas.js';
+import { SEARCH_CATEGORY } from './schemas.js';
 
 export class C411Client {
   private readonly client: AxiosInstance;
@@ -422,7 +423,7 @@ export class C411Client {
         }
         if (category !== undefined) {
           params.category = category;
-          if (subcat !== undefined && category === '1') {
+          if (subcat !== undefined && category === SEARCH_CATEGORY.VIDEO) {
             params.subcat = subcat;
           }
         }
