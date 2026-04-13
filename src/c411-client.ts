@@ -402,21 +402,32 @@ export class C411Client {
 
   async search(
     query: string,
-    sortBy: SearchSortBy = 'relevance',
-    sortOrder: SearchSortOrder = 'desc',
+    sortBy?: SearchSortBy,
+    sortOrder?: SearchSortOrder,
     page = 1,
-    perPage = 25
+    perPage = 25,
+    category?: string,
+    subcat?: string
   ): Promise<SearchResultPage> {
     try {
       return await this.withAuthentication<SearchResultPage>(async () => {
+        const params: Record<string, unknown> = {
+          name: query,
+          page,
+          perPage,
+        };
+        if (sortBy !== undefined) {
+          params.sortBy = sortBy;
+          params.sortOrder = sortOrder ?? 'desc';
+        }
+        if (category !== undefined) {
+          params.category = category;
+          if (subcat !== undefined && category === '1') {
+            params.subcat = subcat;
+          }
+        }
         const response = await this.client.get<C411ApiListResponse<unknown>>('/api/torrents', {
-          params: {
-            name: query,
-            page,
-            perPage,
-            sortBy,
-            sortOrder,
-          },
+          params,
           headers: {
             'Accept': 'application/json',
             'Referer': `${this.baseUrl}/torrents`,

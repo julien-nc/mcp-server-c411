@@ -10,8 +10,28 @@ export function registerTools(server: McpServer, client: C411Client): void {
     inputSchema: searchToolSchema,
     outputSchema: searchToolOutputSchema,
   }, async (args) => {
+    if (args.subcat !== undefined && args.category !== '1') {
+      return errorContent('subcat can only be set when category is 1 (video)', {
+        query: args.query,
+        page: args.page,
+        perPage: args.perPage,
+        resultCount: 0,
+        results: [],
+        error: 'subcat can only be set when category is 1 (video)',
+      });
+    }
+    if (args.subcat !== undefined && args.category === undefined) {
+      return errorContent('subcat can only be set when category is specified', {
+        query: args.query,
+        page: args.page,
+        perPage: args.perPage,
+        resultCount: 0,
+        results: [],
+        error: 'subcat can only be set when category is specified',
+      });
+    }
     try {
-      const results = await client.search(args.query, args.sortBy, args.sortOrder, args.page, args.perPage);
+      const results = await client.search(args.query, args.sortBy, args.sortOrder, args.page, args.perPage, args.category, args.subcat);
       const text = results.results.length > 0
         ? results.results.map((item) => formatStructuredSearchResult(item)).join('\n')
         : 'No results found';

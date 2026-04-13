@@ -14,10 +14,16 @@ export const searchSortBySchema = z.enum([
 
 export const searchSortOrderSchema = z.enum(['asc', 'desc']);
 
+export const searchCategorySchema = z.enum(['1', '2', '3', '4', '5', '6', '7', '10']);
+
+export const searchSubcatSchema = z.string().trim().min(1);
+
 export const searchToolSchema = z.object({
   query: z.string().trim().min(1).max(200).describe('Search query for torrents'),
-  sortBy: searchSortBySchema.optional().default('relevance').describe('Sort criteria for the search results. Defaults to relevance.'),
-  sortOrder: searchSortOrderSchema.optional().default('desc').describe('Sort order for the search results. Defaults to desc.'),
+  category: searchCategorySchema.optional().describe('Category to filter by. Possible values: 1 (video), 2 (ebook), 3 (audio), 4 (applications), 5 (video games), 6 (emulation), 7 (GPS), 10 (3D printing). Only one value can be set.'),
+  subcat: searchSubcatSchema.optional().describe('Sub-category filter. Only allowed when category is 1. Comma-separated values: 1 (animation), 2 (animation series), 3 (concert), 4 (documentary), 5 (tv show), 6 (movie), 7 (tv series), 8 (show), 9 (sport), 10 (video clips).'),
+  sortBy: searchSortBySchema.optional().describe('Sort criteria for the search results. When set, sortOrder defaults to desc.'),
+  sortOrder: searchSortOrderSchema.optional().describe('Sort order for the search results. Only used when sortBy is set. Defaults to desc.'),
   page: z.number().int().positive().optional().default(1).describe('Result page number. Defaults to 1.'),
   perPage: z.number().int().positive().max(100).optional().default(25).describe('Number of results per page. Defaults to 25.'),
 });
