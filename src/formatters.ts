@@ -310,10 +310,13 @@ function toTorrentResult(item: unknown): SearchResultItem | null {
 
   const category = getNestedString(record, ['category', 'name']);
   const subcategory = getNestedString(record, ['subcategory', 'name']);
+  const language = getNestedString(record, ['language'], ['language', 'name'], ['spokenLanguage'], ['spokenLanguage', 'name']);
   const sizeBytes = getNestedNumber(record, ['size']);
   const size = getNestedString(record, ['formattedSize']) ?? formatBytes(sizeBytes);
   const seeders = getNestedNumber(record, ['seeders']);
   const leechers = getNestedNumber(record, ['leechers']);
+  const completions = getNestedNumber(record, ['completions']);
+  const comments = getNestedNumber(record, ['comments'], ['commentsCount']);
   const uploader = getNestedString(record, ['uploader', 'username'], ['uploader', 'name']);
   const infoHash = getInfoHash(record);
 
@@ -322,10 +325,13 @@ function toTorrentResult(item: unknown): SearchResultItem | null {
     type: 'torrent',
     ...(category ? { category } : {}),
     ...(subcategory ? { subcategory } : {}),
+    ...(language ? { language } : {}),
     ...(size ? { size } : {}),
     ...(sizeBytes !== null ? { sizeBytes } : {}),
     ...(seeders !== null ? { seeders } : {}),
     ...(leechers !== null ? { leechers } : {}),
+    ...(completions !== null ? { completions } : {}),
+    ...(comments !== null ? { comments } : {}),
     ...(uploader ? { uploader } : {}),
     ...(infoHash ? { infoHash } : {}),
   };
@@ -390,6 +396,10 @@ export function formatStructuredSearchResult(item: SearchResultItem): string {
     parts.push(`Category: ${item.subcategory ? `${item.category} / ${item.subcategory}` : item.category}`);
   }
 
+  if (item.language) {
+    parts.push(`Language: ${item.language}`);
+  }
+
   if (item.size) {
     parts.push(`Size: ${item.size}`);
   }
@@ -408,6 +418,14 @@ export function formatStructuredSearchResult(item: SearchResultItem): string {
 
   if (item.leechers !== undefined) {
     parts.push(`Leechers: ${item.leechers}`);
+  }
+
+  if (item.completions !== undefined) {
+    parts.push(`Completions: ${item.completions}`);
+  }
+
+  if (item.comments !== undefined) {
+    parts.push(`Comments: ${item.comments}`);
   }
 
   if (item.uploader) {

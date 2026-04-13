@@ -87,10 +87,13 @@ export interface SearchResultItem extends JsonRecord {
   type: 'torrent' | 'release' | 'series';
   category?: string;
   subcategory?: string;
+  language?: string;
   size?: string;
   sizeBytes?: number;
   seeders?: number;
   leechers?: number;
+  completions?: number;
+  comments?: number;
   uploader?: string;
   infoHash?: string;
   versionCount?: number;
