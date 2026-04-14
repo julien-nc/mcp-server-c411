@@ -424,8 +424,8 @@ export class C411Client {
     try {
       return await this.fetchTorrentList({
         query,
-        sortBy,
-        sortOrder,
+        sortBy: sortBy ?? 'relevance',
+        sortOrder: sortOrder ?? 'desc',
         page,
         perPage,
         category,
