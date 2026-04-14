@@ -61,6 +61,16 @@ export const searchToolSchema = z.object({
   perPage: z.number().int().positive().max(100).optional().default(25).describe('Number of results per page. Defaults to 25.'),
 });
 
+export const myUploadsToolSchema = z.object({
+  query: z.string().trim().min(1).max(200).optional().describe('Search query for torrents uploaded by the current user.'),
+  category: searchCategorySchema.optional().describe('Category to filter by. Possible values: 1 (video), 2 (ebook), 3 (audio), 4 (applications), 5 (video games), 6 (emulation), 7 (GPS), 10 (3D printing). Only one value can be set.'),
+  subcat: searchSubcatSchema.optional().describe('Sub-category filter. Only allowed when category is 1. Comma-separated values: 1 (animation), 2 (animation series), 3 (concert), 4 (documentary), 5 (tv show), 6 (movie), 7 (tv series), 8 (show), 9 (sport), 10 (video clips).'),
+  sortBy: searchSortBySchema.optional().describe('Sort criteria for the search results. When set, sortOrder defaults to desc.'),
+  sortOrder: searchSortOrderSchema.optional().describe('Sort order for the search results. Only used when sortBy is set. Defaults to desc.'),
+  page: z.number().int().positive().optional().default(1).describe('Result page number. Defaults to 1.'),
+  perPage: z.number().int().positive().max(100).optional().default(100).describe('Number of results per page. Defaults to 100.'),
+});
+
 export const searchResultItemSchema = z.object({
   title: z.string(),
   type: z.enum(['torrent', 'release', 'series']),
@@ -80,7 +90,7 @@ export const searchResultItemSchema = z.object({
 });
 
 export const searchToolOutputSchema = z.object({
-  query: z.string(),
+  query: z.string().optional(),
   page: z.number().int().positive(),
   perPage: z.number().int().positive(),
   total: z.number().optional(),
@@ -88,11 +98,6 @@ export const searchToolOutputSchema = z.object({
   resultCount: z.number().int().nonnegative(),
   results: z.array(searchResultItemSchema),
   error: z.string().optional(),
-});
-
-export const myUploadsToolSchema = z.object({
-  page: z.number().int().positive().optional().default(1).describe('Result page number. Defaults to 1.'),
-  perPage: z.number().int().positive().max(100).optional().default(100).describe('Number of results per page. Defaults to 100.'),
 });
 
 export const myUploadsToolOutputSchema = searchToolOutputSchema;

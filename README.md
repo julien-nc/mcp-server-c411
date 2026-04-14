@@ -145,6 +145,8 @@ Search for torrents on c411.org.
 
 **Parameters:**
 - `query` (string, required): Search query, trimmed, 1 to 200 characters
+- `category` (string, optional): Category filter. One of `1`, `2`, `3`, `4`, `5`, `6`, `7`, `10`.
+- `subcat` (string, optional): Sub-category filter. Only valid when `category` is `1`.
 - `sortBy` (string, optional): Sort criteria. One of `relevance`, `seeders`, `leechers`, `size`, `createdAt`, `name`, `completions`, `comments`, `category`. Defaults to `relevance`.
 - `sortOrder` (string, optional): Sort order. One of `asc`, `desc`. Defaults to `desc`.
 - `page` (number, optional): Result page number. Defaults to `1`.
@@ -157,6 +159,11 @@ Search for torrents on c411.org.
 List torrents uploaded by the current authenticated c411.org user.
 
 **Parameters:**
+- `query` (string, optional): Search query, trimmed, 1 to 200 characters.
+- `category` (string, optional): Category filter. One of `1`, `2`, `3`, `4`, `5`, `6`, `7`, `10`.
+- `subcat` (string, optional): Sub-category filter. Only valid when `category` is `1`.
+- `sortBy` (string, optional): Sort criteria. One of `relevance`, `seeders`, `leechers`, `size`, `createdAt`, `name`, `completions`, `comments`, `category`. Defaults to `relevance`.
+- `sortOrder` (string, optional): Sort order. One of `asc`, `desc`. Defaults to `desc`.
 - `page` (number, optional): Result page number. Defaults to `1`.
 - `perPage` (number, optional): Number of results per page. Defaults to `100`, maximum `100`.
 

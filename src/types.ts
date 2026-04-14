@@ -101,7 +101,7 @@ export interface SearchResultItem extends JsonRecord {
 }
 
 export interface SearchResultPage extends JsonRecord {
-  query: string;
+  query?: string;
   page: number;
   perPage: number;
   total?: number;

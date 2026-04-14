@@ -4,31 +4,47 @@ import { formatStructuredSearchResult, formatStructuredTorrentCommentsPage, form
 import { downloadToolOutputSchema, downloadToolSchema, myUploadsToolOutputSchema, myUploadsToolSchema, searchToolOutputSchema, searchToolSchema, torrentCommentsToolOutputSchema, torrentCommentsToolSchema, torrentInfoToolOutputSchema, torrentInfoToolSchema, userInfoToolOutputSchema, userInfoToolSchema, SEARCH_CATEGORY } from './schemas.js';
 import { errorContent, textWithStructuredContent } from './tool-utils.js';
 
+function validateSearchLikeArgs(args: { query?: string; category?: string; subcat?: string; page: number; perPage: number }) {
+  if (args.subcat !== undefined && args.category !== SEARCH_CATEGORY.VIDEO) {
+    return {
+      message: 'subcat can only be set when category is 1 (video)',
+      structuredContent: {
+        ...(args.query !== undefined ? { query: args.query } : {}),
+        page: args.page,
+        perPage: args.perPage,
+        resultCount: 0,
+        results: [],
+        error: 'subcat can only be set when category is 1 (video)',
+      },
+    };
+  }
+
+  if (args.subcat !== undefined && args.category === undefined) {
+    return {
+      message: 'subcat can only be set when category is specified',
+      structuredContent: {
+        ...(args.query !== undefined ? { query: args.query } : {}),
+        page: args.page,
+        perPage: args.perPage,
+        resultCount: 0,
+        results: [],
+        error: 'subcat can only be set when category is specified',
+      },
+    };
+  }
+
+  return null;
+}
+
 export function registerTools(server: McpServer, client: C411Client): void {
   server.registerTool('search_c411', {
     description: 'Search for torrents on c411.org',
     inputSchema: searchToolSchema,
     outputSchema: searchToolOutputSchema,
   }, async (args) => {
-    if (args.subcat !== undefined && args.category !== SEARCH_CATEGORY.VIDEO) {
-      return errorContent('subcat can only be set when category is 1 (video)', {
-        query: args.query,
-        page: args.page,
-        perPage: args.perPage,
-        resultCount: 0,
-        results: [],
-        error: 'subcat can only be set when category is 1 (video)',
-      });
-    }
-    if (args.subcat !== undefined && args.category === undefined) {
-      return errorContent('subcat can only be set when category is specified', {
-        query: args.query,
-        page: args.page,
-        perPage: args.perPage,
-        resultCount: 0,
-        results: [],
-        error: 'subcat can only be set when category is specified',
-      });
+    const validationError = validateSearchLikeArgs(args);
+    if (validationError) {
+      return errorContent(validationError.message, validationError.structuredContent);
     }
     try {
       const results = await client.search(args.query, args.sortBy, args.sortOrder, args.page, args.perPage, args.category, args.subcat);
@@ -133,8 +149,13 @@ export function registerTools(server: McpServer, client: C411Client): void {
     inputSchema: myUploadsToolSchema,
     outputSchema: myUploadsToolOutputSchema,
   }, async (args) => {
+    const validationError = validateSearchLikeArgs(args);
+    if (validationError) {
+      return errorContent(validationError.message, validationError.structuredContent);
+    }
+
     try {
-      const results = await client.getCurrentUserUploads(args.page, args.perPage);
+      const results = await client.getCurrentUserUploads(args.query, args.sortBy, args.sortOrder, args.page, args.perPage, args.category, args.subcat);
       const text = results.results.length > 0
         ? results.results.map((item) => formatStructuredSearchResult(item)).join('\n')
         : 'No uploads found';
@@ -143,7 +164,7 @@ export function registerTools(server: McpServer, client: C411Client): void {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Uploaded torrents lookup failed';
       return errorContent(message, {
-        query: 'uploader:self',
+        ...(args.query !== undefined ? { query: args.query } : {}),
         page: args.page,
         perPage: args.perPage,
         resultCount: 0,
